@@ -55,9 +55,15 @@ export function evaluate(
   // Solidity would produce. The rounding applies when scaling to a specific target.
   const solidity = result.value;
 
-  // Rounding loss is 0 unless we're scaling to a different decimal count
-  // For now, we'll calculate it as 0 since we're not scaling by default
-  const roundingLoss = '0';
+  // Calculate rounding loss from division remainder if present
+  let roundingLoss = '0';
+  if (result.divisionRemainder && result.divisionDivisor && result.divisionResultDecimals !== undefined) {
+    roundingLoss = calculateDivisionLoss(
+      result.divisionRemainder,
+      result.divisionDivisor,
+      result.divisionResultDecimals
+    );
+  }
 
   return {
     raw: result.value,
@@ -160,9 +166,17 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>):
       if (right.value === 0n) {
         throw new DivisionByZeroError();
       }
+      const quotient = left.value / right.value;
+      const remainder = left.value % right.value;
+      const resultDecimals = divideDecimals(left.decimals, right.decimals);
+
       return {
-        value: left.value / right.value, // Integer division (truncates)
-        decimals: divideDecimals(left.decimals, right.decimals),
+        value: quotient,
+        decimals: resultDecimals,
+        // Track remainder for loss calculation
+        divisionRemainder: remainder !== 0n ? remainder : undefined,
+        divisionDivisor: remainder !== 0n ? right.value : undefined,
+        divisionResultDecimals: remainder !== 0n ? resultDecimals : undefined,
       };
 
     default:
@@ -272,4 +286,43 @@ export function evaluateWithTargetDecimals(
     solidity,
     roundingLoss,
   };
+}
+
+/**
+ * Calculates rounding loss from a division operation.
+ *
+ * When integer division has a non-zero remainder, this calculates the
+ * fractional part that was lost due to truncation.
+ *
+ * Formula: loss = (remainder / divisor) / 10^resultDecimals
+ *
+ * Example: (3 * 1e18) / 7
+ * - remainder = 3
+ * - divisor = 7
+ * - resultDecimals = 18
+ * - loss = (3/7) / 10^18 ≈ 0.000000000000000428571...
+ *
+ * @param remainder - The remainder from integer division
+ * @param divisor - The divisor used in the division
+ * @param resultDecimals - The decimal places in the result
+ * @returns Formatted loss as a decimal string
+ */
+function calculateDivisionLoss(
+  remainder: bigint,
+  divisor: bigint,
+  resultDecimals: number
+): string {
+  if (remainder === 0n) {
+    return '0';
+  }
+
+  // Calculate (remainder / divisor) with high precision
+  // Scale remainder to get sufficient decimal places
+  const precision = 50; // 50 decimal places of precision
+  const scaledRemainder = remainder * (10n ** BigInt(precision));
+  const fractionWithPrecision = scaledRemainder / divisor;
+
+  // Format as decimal: fractionWithPrecision / 10^(precision + resultDecimals)
+  // This gives us (remainder / divisor) / 10^resultDecimals
+  return formatWithDecimals(fractionWithPrecision, precision + resultDecimals);
 }

@@ -129,6 +129,14 @@ export type ASTNode =
 export interface EvaluatedValue {
   value: bigint;
   decimals: number;
+
+  /**
+   * If this value resulted from a division with a non-zero remainder,
+   * these fields track the remainder for loss calculation.
+   */
+  divisionRemainder?: bigint;
+  divisionDivisor?: bigint;
+  divisionResultDecimals?: number;
 }
 
 // ============================================================================
