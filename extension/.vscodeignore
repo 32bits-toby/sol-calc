@@ -1,11 +1,35 @@
+# VS Code / test scaffolding
 .vscode/**
 .vscode-test/**
+
+# Source (not shipped)
 src/**
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
+**/*.ts
+**/*.map
 **/tsconfig.json
 **/.eslintrc.json
-**/*.map
-**/*.ts
+
+# Node / tooling
 node_modules/**
+package-lock.json
+npm-debug.log
+.yarnrc
+
+# VCS / OS
+.git/**
+.gitignore
+.DS_Store
+
+# Local / AI / editor artifacts
+.claude/**
+*.local.json
+
+# Monorepo folders not needed at runtime
+ui/**
+core/**
+
+# Docs
+vsc-extension-quickstart.md
+
+# Defensive: never include anything above extension root
+../**

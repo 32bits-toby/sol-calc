@@ -2,7 +2,7 @@
 /**
  * SolCalc Webview Provider
  *
- * Manages the webview panel that hosts the React UI
+ * Manages the webview in the sidebar
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -46,30 +46,13 @@ class SolCalcWebviewProvider {
     constructor(extensionUri) {
         this.extensionUri = extensionUri;
     }
-    show() {
-        const column = vscode.window.activeTextEditor
-            ? vscode.window.activeTextEditor.viewColumn
-            : undefined;
-        // If we already have a panel, show it
-        if (SolCalcWebviewProvider.currentPanel) {
-            SolCalcWebviewProvider.currentPanel.reveal(column);
-            return;
-        }
-        // Otherwise, create a new panel
-        const panel = vscode.window.createWebviewPanel('solcalc', 'SolCalc', column || vscode.ViewColumn.One, {
+    resolveWebviewView(webviewView, context, _token) {
+        this._view = webviewView;
+        webviewView.webview.options = {
             enableScripts: true,
-            retainContextWhenHidden: true,
-            localResourceRoots: [
-                vscode.Uri.joinPath(this.extensionUri, 'webview'),
-            ],
-        });
-        SolCalcWebviewProvider.currentPanel = panel;
-        // Set the HTML content
-        panel.webview.html = this.getHtmlContent(panel.webview);
-        // Reset when the panel is closed
-        panel.onDidDispose(() => {
-            SolCalcWebviewProvider.currentPanel = undefined;
-        });
+            localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'webview')],
+        };
+        webviewView.webview.html = this.getHtmlContent(webviewView.webview);
     }
     getHtmlContent(webview) {
         // Path to the built UI files
@@ -90,4 +73,5 @@ class SolCalcWebviewProvider {
     }
 }
 exports.SolCalcWebviewProvider = SolCalcWebviewProvider;
+SolCalcWebviewProvider.viewType = 'solcalc.calculatorView';
 //# sourceMappingURL=webviewProvider.js.map

@@ -1,10 +1,14 @@
 {
   "name": "solcalc",
   "displayName": "SolCalc",
-  "description": "Mixed-Decimal Calculator for Solidity Audits",
+  "description": "A developer utility for safely performing mixed-decimal arithmetic during Solidity development and smart contract audits.",
   "version": "0.1.0",
-  "publisher": "solcalc",
+  "publisher": "keepitfortoby",
   "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/32bits-toby/sol-calc"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -19,17 +23,28 @@
     "decimal"
   ],
   "activationEvents": [
-    "onCommand:solcalc.open"
+    "onView:solcalc.calculatorView"
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "solcalc.open",
-        "title": "Open SolCalc Calculator",
-        "category": "SolCalc"
-      }
-    ]
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "solcalc",
+          "title": "SolCalc",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "solcalc": [
+        {
+          "type": "webview",
+          "id": "solcalc.calculatorView",
+          "name": "Calculator"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

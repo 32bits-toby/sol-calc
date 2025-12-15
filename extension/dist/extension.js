@@ -43,11 +43,8 @@ const webviewProvider_1 = require("./webviewProvider");
 function activate(context) {
     console.log('SolCalc extension is now active');
     const provider = new webviewProvider_1.SolCalcWebviewProvider(context.extensionUri);
-    // Register the command to open SolCalc
-    const openCommand = vscode.commands.registerCommand('solcalc.open', () => {
-        provider.show();
-    });
-    context.subscriptions.push(openCommand);
+    // Register the webview view provider for the sidebar
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider(webviewProvider_1.SolCalcWebviewProvider.viewType, provider));
 }
 function deactivate() {
     console.log('SolCalc extension is now deactivated');

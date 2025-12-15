@@ -10,12 +10,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   const provider = new SolCalcWebviewProvider(context.extensionUri);
 
-  // Register the command to open SolCalc
-  const openCommand = vscode.commands.registerCommand('solcalc.open', () => {
-    provider.show();
-  });
-
-  context.subscriptions.push(openCommand);
+  // Register the webview view provider for the sidebar
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      SolCalcWebviewProvider.viewType,
+      provider
+    )
+  );
 }
 
 export function deactivate() {

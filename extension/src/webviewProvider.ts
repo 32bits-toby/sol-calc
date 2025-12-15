@@ -1,55 +1,32 @@
 /**
  * SolCalc Webview Provider
  *
- * Manages the webview panel that hosts the React UI
+ * Manages the webview in the sidebar
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-export class SolCalcWebviewProvider {
-  private static currentPanel: vscode.WebviewPanel | undefined;
-  private readonly extensionUri: vscode.Uri;
+export class SolCalcWebviewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = 'solcalc.calculatorView';
+  private _view?: vscode.WebviewView;
 
-  constructor(extensionUri: vscode.Uri) {
-    this.extensionUri = extensionUri;
-  }
+  constructor(private readonly extensionUri: vscode.Uri) {}
 
-  public show() {
-    const column = vscode.window.activeTextEditor
-      ? vscode.window.activeTextEditor.viewColumn
-      : undefined;
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ) {
+    this._view = webviewView;
 
-    // If we already have a panel, show it
-    if (SolCalcWebviewProvider.currentPanel) {
-      SolCalcWebviewProvider.currentPanel.reveal(column);
-      return;
-    }
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'webview')],
+    };
 
-    // Otherwise, create a new panel
-    const panel = vscode.window.createWebviewPanel(
-      'solcalc',
-      'SolCalc',
-      column || vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(this.extensionUri, 'webview'),
-        ],
-      }
-    );
-
-    SolCalcWebviewProvider.currentPanel = panel;
-
-    // Set the HTML content
-    panel.webview.html = this.getHtmlContent(panel.webview);
-
-    // Reset when the panel is closed
-    panel.onDidDispose(() => {
-      SolCalcWebviewProvider.currentPanel = undefined;
-    });
+    webviewView.webview.html = this.getHtmlContent(webviewView.webview);
   }
 
   private getHtmlContent(webview: vscode.Webview): string {
