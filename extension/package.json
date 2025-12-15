@@ -9,8 +9,24 @@
     "type": "git",
     "url": "https://github.com/32bits-toby/sol-calc"
   },
+  "homepage": "https://github.com/32bits-toby/sol-calc",
+  "bugs": {
+    "url": "https://github.com/32bits-toby/sol-calc/issues"
+  },
+  "license": "MIT",
+  "qna": "https://github.com/32bits-toby/sol-calc/issues",
   "engines": {
     "vscode": "^1.80.0"
+  },
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "SolCalc runs entirely locally and provides a calculator webview for mixed-decimal arithmetic. No network access or data collection is performed."
+    }
   },
   "categories": [
     "Other"
