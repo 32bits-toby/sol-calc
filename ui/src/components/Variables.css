@@ -1,0 +1,85 @@
+.variables-section {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.variables-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+.expected-decimals-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+}
+
+.expected-decimals-input {
+  width: 50px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.info-icon {
+  cursor: help;
+  font-size: 14px;
+}
+
+.variables-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.variable-row {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr auto;
+  gap: var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.variable-row:last-child {
+  border-bottom: none;
+}
+
+.variable-name {
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.variable-value {
+  width: 100%;
+}
+
+.variable-decimals-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.variable-decimals {
+  width: 50px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+/* Remove spinner from number inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}

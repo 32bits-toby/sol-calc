@@ -1,0 +1,33 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  gap: var(--spacing-lg);
+}
+
+.toolbar-controls {
+  display: flex;
+  gap: var(--spacing-lg);
+  align-items: center;
+}
+
+.toolbar-controls label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.toolbar-controls select {
+  min-width: 100px;
+}
+
+.toolbar-guide {
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}

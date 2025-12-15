@@ -1,0 +1,27 @@
+{
+  "name": "@solcalc/core",
+  "version": "0.1.0",
+  "description": "Pure math engine for SolCalc - audit-grade mixed-decimal arithmetic",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/tests/**/*.test.js",
+    "test:watch": "node --test --watch dist/tests/**/*.test.js",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "solidity",
+    "fixed-point",
+    "decimal",
+    "bigint",
+    "audit"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}

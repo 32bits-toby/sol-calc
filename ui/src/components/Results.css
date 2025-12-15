@@ -1,0 +1,42 @@
+.results-section {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.results-label {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.results-output {
+  background-color: var(--bg-secondary);
+  padding: var(--spacing-md);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.result-line {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: 2px 0;
+  line-height: 1.6;
+}
+
+.result-key {
+  min-width: 80px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.result-value {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.result-error {
+  padding: var(--spacing-sm);
+  line-height: 1.5;
+  font-family: var(--font-ui);
+}
