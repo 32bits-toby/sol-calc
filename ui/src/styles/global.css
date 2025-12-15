@@ -1,10 +1,10 @@
 /**
  * SolCalc Global Styles
- * VS Code Dark Theme
+ * VS Code Theme (Dark + Light)
  */
 
 :root {
-  /* VS Code Dark+ Theme Colors */
+  /* VS Code Dark+ Theme Colors (default) */
   --bg-primary: #1e1e1e;
   --bg-secondary: #252526;
   --bg-tertiary: #2d2d30;
@@ -40,6 +40,30 @@
   --font-size-sm: 12px;
   --font-size-md: 13px;
   --font-size-lg: 14px;
+}
+
+/* Light Theme */
+:root[data-theme="light"] {
+  /* VS Code Light+ Theme Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f3f3;
+  --bg-tertiary: #e8e8e8;
+  --bg-input: #ffffff;
+  --bg-hover: #e5e5e5;
+
+  --border-color: #d4d4d4;
+  --border-focus: #007acc;
+
+  --text-primary: #333333;
+  --text-secondary: #6a6a6a;
+  --text-disabled: #a0a0a0;
+
+  --accent: #007acc;
+  --accent-hover: #005a9e;
+
+  --error: #e51400;
+  --warning: #bf8803;
+  --success: #388a34;
 }
 
 * {

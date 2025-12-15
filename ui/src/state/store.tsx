@@ -7,17 +7,33 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { evaluateExpression, extractVariables, type Variable, type RoundingMode } from '@solcalc/core';
-import type { CalculatorState, CalculatorActions, VariableInput } from './types';
+import type { CalculatorState, CalculatorActions, VariableInput, Theme } from './types';
 
 const CalculatorContext = createContext<(CalculatorState & CalculatorActions) | null>(null);
 
 export function CalculatorProvider({ children }: { children: React.ReactNode }) {
+  // Initialize theme from localStorage or default to dark
+  const [theme, setThemeState] = useState<Theme>(() => {
+    const saved = localStorage.getItem('solcalc-theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
   const [expression, setExpressionState] = useState('');
   const [roundingMode, setRoundingMode] = useState<RoundingMode>('floor');
   const [variables, setVariables] = useState<Map<string, VariableInput>>(new Map());
   const [result, setResult] = useState<CalculatorState['result']>(null);
   const [error, setError] = useState<string | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
+
+  // Apply theme to document root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('solcalc-theme', theme);
+  }, [theme]);
+
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+  }, []);
 
   // Auto-detect variables when expression changes
   const setExpression = useCallback((newExpression: string) => {
@@ -115,8 +131,8 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
         coreVariables.set(name, { name, value: rawValue, decimals });
       }
 
-      // Evaluate using core engine
-      const evalResult = evaluateExpression(expression, coreVariables);
+      // Evaluate using core engine with rounding mode
+      const evalResult = evaluateExpression(expression, coreVariables, roundingMode);
       setResult(evalResult);
     } catch (err) {
       if (err instanceof Error) {
@@ -127,7 +143,7 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsEvaluating(false);
     }
-  }, [expression, variables]);
+  }, [expression, variables, roundingMode]);
 
   // Auto-evaluate when inputs change (with debounce)
   useEffect(() => {
@@ -165,6 +181,7 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
     expression,
     roundingMode,
     variables,
+    theme,
     result,
     error,
     isEvaluating,
@@ -174,6 +191,7 @@ export function CalculatorProvider({ children }: { children: React.ReactNode }) 
     setRoundingMode,
     setVariableValue,
     setVariableDecimals,
+    setTheme,
     evaluate,
   };
 

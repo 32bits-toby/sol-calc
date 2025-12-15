@@ -10,11 +10,14 @@ export interface VariableInput {
   decimals: string;    // String input for decimals
 }
 
+export type Theme = 'light' | 'dark';
+
 export interface CalculatorState {
   // User inputs
   expression: string;
   roundingMode: RoundingMode;
   variables: Map<string, VariableInput>;
+  theme: Theme;
 
   // Computed/derived state
   result: EvaluationResult | null;
@@ -27,5 +30,6 @@ export interface CalculatorActions {
   setRoundingMode: (mode: RoundingMode) => void;
   setVariableValue: (name: string, value: string) => void;
   setVariableDecimals: (name: string, decimals: string) => void;
+  setTheme: (theme: Theme) => void;
   evaluate: () => void;
 }

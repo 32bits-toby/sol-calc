@@ -3,6 +3,7 @@
  *
  * Contains:
  * - Rounding selector (Floor, Ceil)
+ * - Theme toggle (Light, Dark)
  */
 
 import { useCalculator } from '../state/store';
@@ -10,7 +11,7 @@ import type { RoundingMode } from '@solcalc/core';
 import './Toolbar.css';
 
 export function Toolbar() {
-  const { roundingMode, setRoundingMode } = useCalculator();
+  const { roundingMode, setRoundingMode, theme, setTheme } = useCalculator();
 
   return (
     <div className="toolbar">
@@ -23,6 +24,17 @@ export function Toolbar() {
           >
             <option value="floor">Floor</option>
             <option value="ceil">Ceil</option>
+          </select>
+        </label>
+
+        <label>
+          Theme
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
           </select>
         </label>
       </div>

@@ -39,14 +39,16 @@ import { applyRounding, calculateRoundingLoss } from './rounding';
  *
  * @param ast - The AST to evaluate
  * @param variables - Map of variable names to their values and decimals
+ * @param roundingMode - Rounding mode to apply for division (default: floor)
  * @returns Evaluation result
  */
 export function evaluate(
   ast: ASTNode,
-  variables: Map<string, Variable>
+  variables: Map<string, Variable>,
+  roundingMode: RoundingMode = 'floor'
 ): EvaluationResult {
   // Evaluate the AST to get raw value and decimals
-  const result = evaluateNode(ast, variables);
+  const result = evaluateNode(ast, variables, roundingMode);
 
   // Format human-readable representation
   const human = formatWithDecimals(result.value, result.decimals);
@@ -62,7 +64,8 @@ export function evaluate(
     const rawLoss = calculateDivisionLoss(
       result.divisionRemainder,
       result.divisionDivisor,
-      result.divisionResultDecimals
+      result.divisionResultDecimals,
+      roundingMode
     );
     // Trim trailing zeros for clean display (e.g., "0.5" instead of "0.500000...")
     roundingLoss = trimTrailingZeros(rawLoss);
@@ -82,9 +85,10 @@ export function evaluate(
  *
  * @param node - The AST node to evaluate
  * @param variables - Variable definitions
+ * @param roundingMode - Rounding mode for division operations
  * @returns Evaluated value with decimals
  */
-function evaluateNode(node: ASTNode, variables: Map<string, Variable>): EvaluatedValue {
+function evaluateNode(node: ASTNode, variables: Map<string, Variable>, roundingMode: RoundingMode): EvaluatedValue {
   switch (node.type) {
     case ASTNodeType.NUMBER_LITERAL:
       return evaluateNumberLiteral(node as NumberLiteralNode);
@@ -93,10 +97,10 @@ function evaluateNode(node: ASTNode, variables: Map<string, Variable>): Evaluate
       return evaluateIdentifier(node as IdentifierNode, variables);
 
     case ASTNodeType.BINARY_OP:
-      return evaluateBinaryOp(node as BinaryOpNode, variables);
+      return evaluateBinaryOp(node as BinaryOpNode, variables, roundingMode);
 
     case ASTNodeType.EXPONENTIATION:
-      return evaluateExponentiation(node as ExponentiationNode, variables);
+      return evaluateExponentiation(node as ExponentiationNode, variables, roundingMode);
 
     default:
       // This should never happen with proper TypeScript typing
@@ -142,11 +146,11 @@ function evaluateIdentifier(node: IdentifierNode, variables: Map<string, Variabl
 /**
  * Evaluates a binary operation (+, -, *, /).
  */
-function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>): EvaluatedValue {
+function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>, roundingMode: RoundingMode): EvaluatedValue {
   // Special handling for addition/subtraction with scalar literal coercion
   if (node.operator === '+' || node.operator === '-') {
-    const left = evaluateNode(node.left, variables);
-    const right = evaluateNode(node.right, variables);
+    const left = evaluateNode(node.left, variables, roundingMode);
+    const right = evaluateNode(node.right, variables, roundingMode);
 
     // Scalar literal coercion: if a literal scalar is added/subtracted with a fixed-point value,
     // lift the scalar to match the fixed-point value's decimals.
@@ -188,8 +192,8 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>):
   }
 
   // For other operators (*, /), evaluate normally
-  const left = evaluateNode(node.left, variables);
-  const right = evaluateNode(node.right, variables);
+  const left = evaluateNode(node.left, variables, roundingMode);
+  const right = evaluateNode(node.right, variables, roundingMode);
 
   if (node.operator === '*') {
     return {
@@ -202,8 +206,24 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>):
     if (right.value === 0n) {
       throw new DivisionByZeroError();
     }
-    const quotient = left.value / right.value;
+
     const remainder = left.value % right.value;
+    let quotient: bigint;
+
+    // Apply rounding mode
+    if (roundingMode === 'floor') {
+      // Floor division (default BigInt behavior)
+      quotient = left.value / right.value;
+    } else {
+      // Ceil division: (a + b - 1) / b
+      // Only apply ceil adjustment if there's a remainder
+      if (remainder === 0n) {
+        quotient = left.value / right.value;
+      } else {
+        quotient = (left.value + right.value - 1n) / right.value;
+      }
+    }
+
     const resultDecimals = divideDecimals(left.decimals, right.decimals);
 
     return {
@@ -234,7 +254,8 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>):
  */
 function evaluateExponentiation(
   node: ExponentiationNode,
-  variables: Map<string, Variable>
+  variables: Map<string, Variable>,
+  roundingMode: RoundingMode
 ): EvaluatedValue {
   // Validate that base is a literal 10
   if (node.base.type !== ASTNodeType.NUMBER_LITERAL) {
@@ -247,7 +268,7 @@ function evaluateExponentiation(
   }
 
   // Evaluate the exponent
-  const exponent = evaluateNode(node.exponent, variables);
+  const exponent = evaluateNode(node.exponent, variables, roundingMode);
 
   // Validate that exponent is dimensionless (decimals = 0)
   if (exponent.decimals !== 0) {
@@ -300,7 +321,7 @@ export function evaluateWithTargetDecimals(
   roundingMode: RoundingMode = 'floor'
 ): EvaluationResult {
   // Evaluate without scaling
-  const result = evaluateNode(ast, variables);
+  const result = evaluateNode(ast, variables, roundingMode);
 
   // Scale to target decimals with rounding
   const scaledValue = applyRounding(result.value, result.decimals, targetDecimals, roundingMode);
@@ -329,35 +350,47 @@ export function evaluateWithTargetDecimals(
  * When integer division has a non-zero remainder, this calculates the
  * fractional part that was lost due to truncation.
  *
- * Formula: loss = (remainder / divisor) / 10^resultDecimals
+ * Floor: loss = (remainder / divisor) / 10^resultDecimals (positive)
+ * Ceil:  loss = -((divisor - remainder) / divisor) / 10^resultDecimals (negative)
  *
- * Example: (3 * 1e18) / 7
- * - remainder = 3
- * - divisor = 7
- * - resultDecimals = 18
- * - loss = (3/7) / 10^18 ≈ 0.000000000000000428571...
+ * Example Floor: (3 * 1e18) / 7
+ * - remainder = 3, divisor = 7, exact = 3.5, floor = 3
+ * - loss = (3/7) / 10^18 ≈ +0.000000000000000428571...
+ *
+ * Example Ceil: 7 / 2
+ * - remainder = 1, divisor = 2, exact = 3.5, ceil = 4
+ * - loss = -(1/2) = -0.5 (over-allocation)
  *
  * @param remainder - The remainder from integer division
  * @param divisor - The divisor used in the division
  * @param resultDecimals - The decimal places in the result
+ * @param roundingMode - The rounding mode applied
  * @returns Formatted loss as a decimal string
  */
 function calculateDivisionLoss(
   remainder: bigint,
   divisor: bigint,
-  resultDecimals: number
+  resultDecimals: number,
+  roundingMode: RoundingMode
 ): string {
   if (remainder === 0n) {
     return '0';
   }
 
-  // Calculate (remainder / divisor) with high precision
-  // Scale remainder to get sufficient decimal places
+  // For Floor: loss = remainder / divisor (positive - under-allocation)
+  // For Ceil: loss = -(divisor - remainder) / divisor (negative - over-allocation)
+  const lossNumerator = roundingMode === 'floor' ? remainder : -(divisor - remainder);
+  const isNegative = lossNumerator < 0n;
+  const absNumerator = isNegative ? -lossNumerator : lossNumerator;
+
+  // Calculate (lossNumerator / divisor) with high precision
   const precision = 50; // 50 decimal places of precision
-  const scaledRemainder = remainder * (10n ** BigInt(precision));
-  const fractionWithPrecision = scaledRemainder / divisor;
+  const scaledNumerator = absNumerator * (10n ** BigInt(precision));
+  const fractionWithPrecision = scaledNumerator / divisor;
 
   // Format as decimal: fractionWithPrecision / 10^(precision + resultDecimals)
-  // This gives us (remainder / divisor) / 10^resultDecimals
-  return formatWithDecimals(fractionWithPrecision, precision + resultDecimals);
+  const formatted = formatWithDecimals(fractionWithPrecision, precision + resultDecimals);
+
+  // Add negative sign for ceil
+  return isNegative ? `-${formatted}` : formatted;
 }

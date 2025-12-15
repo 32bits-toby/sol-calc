@@ -46,15 +46,17 @@ import { Variable, EvaluationResult, RoundingMode, ASTNode, IdentifierNode, ASTN
  *
  * @param expression - The expression to evaluate
  * @param variables - Map of variable names to their definitions
+ * @param roundingMode - Rounding mode for division (default: 'floor')
  * @returns Evaluation result
  */
 export function evaluateExpression(
   expression: string,
-  variables: Map<string, Variable>
+  variables: Map<string, Variable>,
+  roundingMode: RoundingMode = 'floor'
 ): EvaluationResult {
   const tokens = tokenize(expression);
   const ast = parse(tokens);
-  return evaluate(ast, variables);
+  return evaluate(ast, variables, roundingMode);
 }
 
 /**
