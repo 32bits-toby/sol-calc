@@ -177,9 +177,11 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>):
  * - base must be literal 10
  * - exponent must evaluate to decimals = 0 (dimensionless)
  *
- * The result is treated as a scaling factor:
- * - value = 1
- * - decimals = n (the exponent value)
+ * The result is ALWAYS a pure scalar with decimals = 0:
+ * - value = 10^n (computed power)
+ * - decimals = 0 (NOT a scaled value)
+ *
+ * This is a scale constructor, not fixed-point math.
  */
 function evaluateExponentiation(
   node: ExponentiationNode,
@@ -213,10 +215,20 @@ function evaluateExponentiation(
     );
   }
 
-  // Return scaling factor: 10 ** n is represented as { value: 1, decimals: n }
-  // This represents a pure scaling factor, not a computed power
+  // Validate non-negative exponent
+  if (exponentNum < 0) {
+    throw new InvalidExponentiationError(
+      `exponent must be non-negative, got ${exponentNum}`
+    );
+  }
+
+  // Compute power as scale constant: 10 ** n → {10^n, decimals: n}
+  // This represents "1 with n decimals of precision"
+  // In fixed-point: 10^n / 10^n = 1
+  // When dividing by this, we remove 10^n from raw AND subtract n from decimals
+  const powerValue = 10n ** BigInt(exponentNum);
   return {
-    value: 1n,
+    value: powerValue,
     decimals: exponentNum,
   };
 }
