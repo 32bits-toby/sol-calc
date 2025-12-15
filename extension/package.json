@@ -1,0 +1,49 @@
+{
+  "name": "solcalc",
+  "displayName": "SolCalc",
+  "description": "Mixed-Decimal Calculator for Solidity Audits",
+  "version": "0.1.0",
+  "publisher": "solcalc",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "solidity",
+    "calculator",
+    "audit",
+    "defi",
+    "decimal"
+  ],
+  "activationEvents": [
+    "onCommand:solcalc.open"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "solcalc.open",
+        "title": "Open SolCalc Calculator",
+        "category": "SolCalc"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@solcalc/core": "file:../core"
+  }
+}

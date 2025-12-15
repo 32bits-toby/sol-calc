@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:extension": "tsc && vite build --outDir ../extension/webview",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },

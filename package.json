@@ -1,0 +1,18 @@
+{
+  "name": "solcalc-workspace",
+  "version": "0.1.0",
+  "description": "SolCalc - Mixed-Decimal Calculator for Solidity Audits",
+  "private": true,
+  "scripts": {
+    "build:core": "cd core && npm run build",
+    "build:ui": "cd ui && npm run build:extension",
+    "build:extension": "cd extension && npm run compile",
+    "build": "npm run build:core && npm run build:ui && npm run build:extension",
+    "install:all": "cd core && npm install && cd ../ui && npm install && cd ../extension && npm install"
+  },
+  "workspaces": [
+    "core",
+    "ui",
+    "extension"
+  ]
+}
