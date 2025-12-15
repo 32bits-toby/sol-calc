@@ -1,0 +1,247 @@
+/**
+ * Guideline Component Styles
+ *
+ * Matches VS Code side panel aesthetic:
+ * - Single-column layout
+ * - Minimal navigation
+ * - Clean drill-down pattern
+ */
+
+/* Overlay */
+.guideline-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-lg);
+}
+
+/* Panel */
+.guideline-panel {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Header */
+.guideline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+.guideline-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.guideline-close {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.guideline-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Content Area */
+.guideline-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+/* Index View */
+.guideline-index {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.guideline-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.guideline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guideline-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.guideline-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.guideline-item-title {
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.guideline-item-arrow {
+  font-size: 14px;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.guideline-item:hover .guideline-item-arrow {
+  opacity: 1;
+}
+
+/* Content View */
+.guideline-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.guideline-back {
+  align-self: flex-start;
+  padding: var(--spacing-xs) var(--spacing-md);
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.guideline-back:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.guideline-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.guideline-detail-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.guideline-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.guideline-section-block h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.guideline-section-block p {
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.guideline-example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.example-code {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: var(--spacing-md);
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.example-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .guideline-panel {
+    max-width: 100%;
+    max-height: 90vh;
+  }
+
+  .guideline-overlay {
+    padding: var(--spacing-md);
+  }
+}

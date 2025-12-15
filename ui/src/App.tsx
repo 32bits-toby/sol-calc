@@ -10,19 +10,30 @@
  * 6. Footer
  */
 
+import { useState } from 'react';
 import { CalculatorProvider, useCalculator } from './state/store';
 import { Toolbar } from './components/Toolbar';
 import { Expression } from './components/Expression';
 import { Variables } from './components/Variables';
 import { Results } from './components/Results';
 import { Footer } from './components/Footer';
+import { Guideline } from './components/Guideline';
 import './App.css';
 
 function AppContent() {
   const { theme, setTheme } = useCalculator();
+  const [isGuidelineOpen, setIsGuidelineOpen] = useState(false);
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const openGuideline = () => {
+    setIsGuidelineOpen(true);
+  };
+
+  const closeGuideline = () => {
+    setIsGuidelineOpen(false);
   };
 
   return (
@@ -45,11 +56,13 @@ function AppContent() {
         </button>
       </header>
 
-      <Toolbar />
+      <Toolbar onGuideClick={openGuideline} />
       <Expression />
       <Variables />
       <Results />
       <Footer />
+
+      <Guideline isOpen={isGuidelineOpen} onClose={closeGuideline} />
     </div>
   );
 }

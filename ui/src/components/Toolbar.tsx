@@ -3,13 +3,18 @@
  *
  * Contains:
  * - Rounding selector (Floor, Ceil)
+ * - Guide button
  */
 
 import { useCalculator } from '../state/store';
 import type { RoundingMode } from '@solcalc/core';
 import './Toolbar.css';
 
-export function Toolbar() {
+interface ToolbarProps {
+  onGuideClick: () => void;
+}
+
+export function Toolbar({ onGuideClick }: ToolbarProps) {
   const { roundingMode, setRoundingMode } = useCalculator();
 
   return (
@@ -25,6 +30,14 @@ export function Toolbar() {
             <option value="ceil">Ceil</option>
           </select>
         </label>
+
+        <button
+          className="guide-button"
+          onClick={onGuideClick}
+          title="Open SolCalc Guidelines"
+        >
+          Guide ?
+        </button>
       </div>
     </div>
   );
