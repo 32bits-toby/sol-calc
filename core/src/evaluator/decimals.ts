@@ -167,3 +167,38 @@ export function scaleToDecimals(
     return value / divisor;
   }
 }
+
+/**
+ * Trims trailing zeros from a decimal string for clean display.
+ *
+ * Rules:
+ * - Remove trailing zeros after the decimal point
+ * - Remove trailing decimal point if no digits remain
+ * - Never round or hide precision
+ *
+ * Examples:
+ * - "0.500000000000" → "0.5"
+ * - "0.250000" → "0.25"
+ * - "0.428571428571000000" → "0.428571428571"
+ * - "3.0" → "3"
+ * - "0" → "0"
+ *
+ * @param decimalString - The decimal string to trim
+ * @returns Trimmed string
+ */
+export function trimTrailingZeros(decimalString: string): string {
+  // If no decimal point, return as-is
+  if (!decimalString.includes('.')) {
+    return decimalString;
+  }
+
+  // Remove trailing zeros after decimal point
+  let trimmed = decimalString.replace(/\.?0+$/, '');
+
+  // Handle edge case: if we removed everything after the decimal point
+  if (trimmed.endsWith('.')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return trimmed;
+}

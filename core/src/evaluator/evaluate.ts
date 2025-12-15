@@ -30,6 +30,7 @@ import {
   addDecimals,
   subtractDecimals,
   formatWithDecimals,
+  trimTrailingZeros,
 } from './decimals';
 import { applyRounding, calculateRoundingLoss } from './rounding';
 
@@ -58,11 +59,13 @@ export function evaluate(
   // Calculate rounding loss from division remainder if present
   let roundingLoss = '0';
   if (result.divisionRemainder && result.divisionDivisor && result.divisionResultDecimals !== undefined) {
-    roundingLoss = calculateDivisionLoss(
+    const rawLoss = calculateDivisionLoss(
       result.divisionRemainder,
       result.divisionDivisor,
       result.divisionResultDecimals
     );
+    // Trim trailing zeros for clean display (e.g., "0.5" instead of "0.500000...")
+    roundingLoss = trimTrailingZeros(rawLoss);
   }
 
   return {
