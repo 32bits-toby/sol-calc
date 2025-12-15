@@ -140,48 +140,80 @@ function evaluateIdentifier(node: IdentifierNode, variables: Map<string, Variabl
  * Evaluates a binary operation (+, -, *, /).
  */
 function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>): EvaluatedValue {
+  // Special handling for addition/subtraction with scalar literal coercion
+  if (node.operator === '+' || node.operator === '-') {
+    const left = evaluateNode(node.left, variables);
+    const right = evaluateNode(node.right, variables);
+
+    // Scalar literal coercion: if a literal scalar is added/subtracted with a fixed-point value,
+    // lift the scalar to match the fixed-point value's decimals.
+    // This makes "1e18 + 1" work intuitively (meaning "add 1 wei" not "add 1 token").
+    let finalLeft = left;
+    let finalRight = right;
+
+    // Check if left is a scalar literal (decimals=0 from a NumberLiteralNode)
+    const leftIsScalarLiteral = node.left.type === ASTNodeType.NUMBER_LITERAL && left.decimals === 0;
+    const rightIsScalarLiteral = node.right.type === ASTNodeType.NUMBER_LITERAL && right.decimals === 0;
+
+    // If left is a scalar literal and right has decimals, lift left
+    if (leftIsScalarLiteral && right.decimals > 0) {
+      finalLeft = {
+        ...left,
+        decimals: right.decimals, // Lift to match right's decimals
+      };
+    }
+    // If right is a scalar literal and left has decimals, lift right
+    else if (rightIsScalarLiteral && left.decimals > 0) {
+      finalRight = {
+        ...right,
+        decimals: left.decimals, // Lift to match left's decimals
+      };
+    }
+
+    // Perform the operation with potentially lifted values
+    if (node.operator === '+') {
+      return {
+        value: finalLeft.value + finalRight.value,
+        decimals: addDecimals(finalLeft.decimals, finalRight.decimals),
+      };
+    } else {
+      return {
+        value: finalLeft.value - finalRight.value,
+        decimals: subtractDecimals(finalLeft.decimals, finalRight.decimals),
+      };
+    }
+  }
+
+  // For other operators (*, /), evaluate normally
   const left = evaluateNode(node.left, variables);
   const right = evaluateNode(node.right, variables);
 
-  switch (node.operator) {
-    case '+':
-      return {
-        value: left.value + right.value,
-        decimals: addDecimals(left.decimals, right.decimals),
-      };
-
-    case '-':
-      return {
-        value: left.value - right.value,
-        decimals: subtractDecimals(left.decimals, right.decimals),
-      };
-
-    case '*':
-      return {
-        value: left.value * right.value,
-        decimals: multiplyDecimals(left.decimals, right.decimals),
-      };
-
-    case '/':
-      if (right.value === 0n) {
-        throw new DivisionByZeroError();
-      }
-      const quotient = left.value / right.value;
-      const remainder = left.value % right.value;
-      const resultDecimals = divideDecimals(left.decimals, right.decimals);
-
-      return {
-        value: quotient,
-        decimals: resultDecimals,
-        // Track remainder for loss calculation
-        divisionRemainder: remainder !== 0n ? remainder : undefined,
-        divisionDivisor: remainder !== 0n ? right.value : undefined,
-        divisionResultDecimals: remainder !== 0n ? resultDecimals : undefined,
-      };
-
-    default:
-      throw new Error(`Unknown operator: ${node.operator}`);
+  if (node.operator === '*') {
+    return {
+      value: left.value * right.value,
+      decimals: multiplyDecimals(left.decimals, right.decimals),
+    };
   }
+
+  if (node.operator === '/') {
+    if (right.value === 0n) {
+      throw new DivisionByZeroError();
+    }
+    const quotient = left.value / right.value;
+    const remainder = left.value % right.value;
+    const resultDecimals = divideDecimals(left.decimals, right.decimals);
+
+    return {
+      value: quotient,
+      decimals: resultDecimals,
+      // Track remainder for loss calculation
+      divisionRemainder: remainder !== 0n ? remainder : undefined,
+      divisionDivisor: remainder !== 0n ? right.value : undefined,
+      divisionResultDecimals: remainder !== 0n ? resultDecimals : undefined,
+    };
+  }
+
+  throw new Error(`Unknown operator: ${node.operator}`);
 }
 
 /**
