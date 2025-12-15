@@ -1,0 +1,35 @@
+# Development Progress (local only)
+DEVELOPMENT_PROGRESS.md
+
+# Dependencies
+node_modules/
+package-lock.json
+*.log
+
+# Build outputs
+dist/
+build/
+*.vsix
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Testing
+coverage/
+
+# Temporary
+*.tmp
+*.temp
+.cache/
