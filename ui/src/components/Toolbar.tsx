@@ -30,15 +30,15 @@ export function Toolbar({ onGuideClick }: ToolbarProps) {
             <option value="ceil">Ceil</option>
           </select>
         </label>
-
-        <button
-          className="guide-button"
-          onClick={onGuideClick}
-          title="Open SolCalc Guidelines"
-        >
-          Guide ?
-        </button>
       </div>
+
+      <button
+        className="guide-button"
+        onClick={onGuideClick}
+        title="Open SolCalc Guidelines"
+      >
+        Guide ?
+      </button>
     </div>
   );
 }
