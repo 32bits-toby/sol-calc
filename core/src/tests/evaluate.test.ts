@@ -619,3 +619,41 @@ test('evaluate - type(uint64).max * type(uint64).max (massive overflow)', () => 
   assert.notStrictEqual(result.warning, undefined);
   assert.strictEqual(result.warning?.kind, 'overflow');
 });
+
+// ============================================================================
+// Overflow Scoping - Only Pure Scalars
+// ============================================================================
+
+test('evaluate - type(uint256).max / 1e18 (no overflow warning for non-scalar result)', () => {
+  const result = evaluateExpression('type(uint256).max / 1e18', new Map());
+
+  // Result has decimals = -18 (negative means we need to multiply by 10^18 to get the integer)
+  assert.strictEqual(result.decimals, -18);
+
+  // Should NOT show overflow warning because result is not a pure scalar
+  assert.strictEqual(result.warning, undefined);
+});
+
+test('evaluate - (type(uint256).max + 1) * 1e18 / 1e18 (overflow for scalar result)', () => {
+  const result = evaluateExpression('(type(uint256).max + 1) * 1e18 / 1e18', new Map());
+
+  // Decimals cancel out: +18 -18 = 0 (pure scalar)
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.raw, 2n ** 256n); // Overflows uint256
+
+  // Should show overflow warning because final result IS a pure scalar
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+  assert.strictEqual(result.warning?.wrappedValue, 0n);
+});
+
+test('evaluate - (type(uint8).max + 1) * 1e6 (no overflow warning for scaled result)', () => {
+  const result = evaluateExpression('(type(uint8).max + 1) * 1e6', new Map());
+
+  // Result = 256 * 10^6 with decimals = 6
+  assert.strictEqual(result.decimals, 6);
+  assert.strictEqual(result.raw, 256n * (10n ** 6n));
+
+  // Should NOT show overflow warning because final result has decimals
+  assert.strictEqual(result.warning, undefined);
+});

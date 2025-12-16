@@ -76,8 +76,9 @@ export function evaluate(
     roundingLoss = trimTrailingZeros(rawLoss);
   }
 
-  // Check for overflow/underflow if type bounds were used
-  const warning = detectOverflow(result.value, typeBounds);
+  // Check for overflow/underflow if type bounds were used AND result is a pure scalar
+  // Only scalars (decimals = 0) can overflow in Solidity integer arithmetic
+  const warning = result.decimals === 0 ? detectOverflow(result.value, typeBounds) : undefined;
 
   return {
     raw: result.value,
@@ -374,8 +375,9 @@ export function evaluateWithTargetDecimals(
   const solidity = scaledValue;
   const roundingLoss = formatWithDecimals(loss, result.decimals);
 
-  // Check for overflow/underflow if type bounds were used
-  const warning = detectOverflow(result.value, typeBounds);
+  // Check for overflow/underflow if type bounds were used AND result is a pure scalar
+  // Only scalars (decimals = 0) can overflow in Solidity integer arithmetic
+  const warning = result.decimals === 0 ? detectOverflow(result.value, typeBounds) : undefined;
 
   return {
     raw,

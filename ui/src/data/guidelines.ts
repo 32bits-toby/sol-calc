@@ -473,14 +473,15 @@ export const GUIDELINES: GuidelineSection[] = [
       {
         id: 'tb-3',
         title: 'Overflow Detection and Wrapping',
-        rule: 'When arithmetic on type bounds exceeds the type\'s range, SolCalc shows both the unbounded result and the wrapped Solidity value.',
-        explanation: 'SolCalc computes using unbounded math (no overflow), then checks if the result would overflow in Solidity. If so, it displays a warning with the wrapped value according to Solidity modulo semantics.',
+        rule: 'Overflow detection only applies to pure scalar results (decimals = 0). When arithmetic on type bounds exceeds the type\'s range, SolCalc shows both the unbounded result and the wrapped Solidity value.',
+        explanation: 'SolCalc computes using unbounded math (no overflow), then checks if the result would overflow in Solidity. Overflow warnings are only shown when the final result has decimals = 0, since Solidity integer types are always scalars. Fixed-point results (decimals > 0) don\'t trigger overflow warnings.',
         examples: [
-          { code: 'type(uint256).max + 1 → Unbounded result + wrap preview', label: 'Overflow detection' },
+          { code: 'type(uint256).max + 1 → Unbounded result + wrap preview', label: 'Overflow detected (scalar)' },
           { code: 'type(uint256).max + 3 → Wraps to 2', label: 'Modulo 2^256' },
-          { code: 'type(int256).min - 1 → Wraps to max', label: 'Signed underflow' },
+          { code: 'type(uint256).max / 1e18 → No overflow warning', label: 'Fixed-point result (no warning)' },
+          { code: '(type(uint256).max + 1) * 1e18 / 1e18 → Overflow detected', label: 'Decimals cancel to 0' },
         ],
-        auditRelevance: 'In unchecked blocks, Solidity arithmetic wraps silently. SolCalc helps auditors reason about overflow behavior without executing contracts. Verify wrapping is intentional.',
+        auditRelevance: 'In unchecked blocks, Solidity arithmetic wraps silently. SolCalc helps auditors reason about overflow behavior without executing contracts. Verify wrapping is intentional. Note that overflow only matters for pure integer operations.',
       },
       {
         id: 'tb-4',
