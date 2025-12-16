@@ -7,14 +7,14 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { evaluateExpression, evaluateExpressionWithTarget } from '../index';
+import { evaluateExpression, evaluateExpressionWithTarget } from '../index.js';
 import {
   Variable,
   DivisionByZeroError,
   DecimalMismatchError,
   InvalidExponentiationError,
   UndefinedVariableError,
-} from '../types';
+} from '../types.js';
 
 // Helper to create variable map
 function vars(obj: Record<string, { value: bigint; decimals: number }>): Map<string, Variable> {
@@ -414,4 +414,208 @@ test('evaluate - literal number in expression', () => {
   // 1 * 2 / 100 = 0.02
   assert.strictEqual(result.raw, 20000000000000000n);
   assert.strictEqual(result.decimals, 18);
+});
+
+// ============================================================================
+// Type Bounds Tests
+// ============================================================================
+
+test('evaluate - type(uint256).max', () => {
+  const result = evaluateExpression('type(uint256).max', new Map());
+  assert.strictEqual(result.raw, (2n ** 256n) - 1n);
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined); // No overflow
+});
+
+test('evaluate - type(uint256).min', () => {
+  const result = evaluateExpression('type(uint256).min', new Map());
+  assert.strictEqual(result.raw, 0n);
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined);
+});
+
+test('evaluate - type(int256).max', () => {
+  const result = evaluateExpression('type(int256).max', new Map());
+  assert.strictEqual(result.raw, (2n ** 255n) - 1n);
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined);
+});
+
+test('evaluate - type(int256).min', () => {
+  const result = evaluateExpression('type(int256).min', new Map());
+  assert.strictEqual(result.raw, -(2n ** 255n));
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined);
+});
+
+test('evaluate - type(uint8).max', () => {
+  const result = evaluateExpression('type(uint8).max', new Map());
+  assert.strictEqual(result.raw, 255n);
+  assert.strictEqual(result.decimals, 0);
+});
+
+test('evaluate - type(uint128).max', () => {
+  const result = evaluateExpression('type(uint128).max', new Map());
+  assert.strictEqual(result.raw, (2n ** 128n) - 1n);
+  assert.strictEqual(result.decimals, 0);
+});
+
+test('evaluate - type(int8).min', () => {
+  const result = evaluateExpression('type(int8).min', new Map());
+  assert.strictEqual(result.raw, -128n);
+  assert.strictEqual(result.decimals, 0);
+});
+
+test('evaluate - type(int8).max', () => {
+  const result = evaluateExpression('type(int8).max', new Map());
+  assert.strictEqual(result.raw, 127n);
+  assert.strictEqual(result.decimals, 0);
+});
+
+test('evaluate - type bound alias uint', () => {
+  const result = evaluateExpression('type(uint).max', new Map());
+  assert.strictEqual(result.raw, (2n ** 256n) - 1n);
+  assert.strictEqual(result.decimals, 0);
+});
+
+test('evaluate - type bound alias int', () => {
+  const result = evaluateExpression('type(int).min', new Map());
+  assert.strictEqual(result.raw, -(2n ** 255n));
+  assert.strictEqual(result.decimals, 0);
+});
+
+// ============================================================================
+// Type Bounds Arithmetic (No Overflow)
+// ============================================================================
+
+test('evaluate - type(uint256).max - 5', () => {
+  const result = evaluateExpression('type(uint256).max - 5', new Map());
+  assert.strictEqual(result.raw, (2n ** 256n) - 6n);
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined); // No overflow
+});
+
+test('evaluate - type(uint128).max / 2', () => {
+  const result = evaluateExpression('type(uint128).max / 2', new Map());
+  assert.strictEqual(result.raw, ((2n ** 128n) - 1n) / 2n);
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined);
+});
+
+test('evaluate - type(int8).min + 100', () => {
+  const result = evaluateExpression('type(int8).min + 100', new Map());
+  assert.strictEqual(result.raw, -28n);
+  assert.strictEqual(result.decimals, 0);
+  assert.strictEqual(result.warning, undefined);
+});
+
+// ============================================================================
+// Overflow Detection Tests
+// ============================================================================
+
+test('evaluate - type(uint256).max + 1 (overflow)', () => {
+  const result = evaluateExpression('type(uint256).max + 1', new Map());
+
+  // Result should be the unbounded mathematical value
+  assert.strictEqual(result.raw, 2n ** 256n);
+  assert.strictEqual(result.decimals, 0);
+
+  // Should have overflow warning
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+  assert.strictEqual(result.warning?.solidityType, 'uint256');
+  assert.strictEqual(result.warning?.wrappedValue, 0n);
+});
+
+test('evaluate - type(uint256).max + 3 (overflow wraps to 2)', () => {
+  const result = evaluateExpression('type(uint256).max + 3', new Map());
+
+  assert.strictEqual(result.raw, (2n ** 256n) + 2n);
+  assert.strictEqual(result.decimals, 0);
+
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+  assert.strictEqual(result.warning?.wrappedValue, 2n);
+  assert.strictEqual(result.warning?.wrappedHuman, '2');
+});
+
+test('evaluate - type(uint128).max * 2 (overflow)', () => {
+  const result = evaluateExpression('type(uint128).max * 2', new Map());
+
+  const expected = ((2n ** 128n) - 1n) * 2n;
+  assert.strictEqual(result.raw, expected);
+
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+  assert.strictEqual(result.warning?.solidityType, 'uint128');
+});
+
+test('evaluate - type(int256).min - 1 (underflow)', () => {
+  const result = evaluateExpression('type(int256).min - 1', new Map());
+
+  const expected = -(2n ** 255n) - 1n;
+  assert.strictEqual(result.raw, expected);
+
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'underflow');
+  assert.strictEqual(result.warning?.solidityType, 'int256');
+});
+
+test('evaluate - type(uint8).max + 1 (overflow wraps to 0)', () => {
+  const result = evaluateExpression('type(uint8).max + 1', new Map());
+
+  assert.strictEqual(result.raw, 256n);
+  assert.strictEqual(result.decimals, 0);
+
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+  assert.strictEqual(result.warning?.wrappedValue, 0n);
+  assert.strictEqual(result.warning?.solidityType, 'uint8');
+});
+
+test('evaluate - type(int8).max + 1 (overflow)', () => {
+  const result = evaluateExpression('type(int8).max + 1', new Map());
+
+  assert.strictEqual(result.raw, 128n);
+
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+  assert.strictEqual(result.warning?.wrappedValue, -128n); // Wraps to min
+});
+
+test('evaluate - type(int8).min - 1 (underflow)', () => {
+  const result = evaluateExpression('type(int8).min - 1', new Map());
+
+  assert.strictEqual(result.raw, -129n);
+
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'underflow');
+  assert.strictEqual(result.warning?.wrappedValue, 127n); // Wraps to max
+});
+
+// ============================================================================
+// Complex Overflow Cases
+// ============================================================================
+
+test('evaluate - (type(uint256).max + 5) - 3 (overflow in subexpression)', () => {
+  const result = evaluateExpression('(type(uint256).max + 5) - 3', new Map());
+
+  // Result is (2^256 - 1 + 5) - 3 = 2^256 + 1
+  assert.strictEqual(result.raw, (2n ** 256n) + 1n);
+
+  // Should detect overflow based on the uint256 type in the expression
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
+});
+
+test('evaluate - type(uint64).max * type(uint64).max (massive overflow)', () => {
+  const result = evaluateExpression('type(uint64).max * type(uint64).max', new Map());
+
+  const max64 = (2n ** 64n) - 1n;
+  const expected = max64 * max64;
+  assert.strictEqual(result.raw, expected);
+
+  // Should overflow uint64
+  assert.notStrictEqual(result.warning, undefined);
+  assert.strictEqual(result.warning?.kind, 'overflow');
 });

@@ -4,8 +4,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { tokenize } from '../parser/tokenize';
-import { TokenType, ParseError } from '../types';
+import { tokenize } from '../parser/tokenize.js';
+import { TokenType, ParseError } from '../types.js';
 
 test('tokenize - simple number', () => {
   const tokens = tokenize('123');
@@ -145,4 +145,138 @@ test('tokenize - position tracking', () => {
   assert.strictEqual(tokens[0]!.position, 0); // 123 at position 0
   assert.strictEqual(tokens[1]!.position, 4); // + at position 4
   assert.strictEqual(tokens[2]!.position, 6); // 456 at position 6
+});
+
+// ============================================================================
+// Type Bounds Tests
+// ============================================================================
+
+test('tokenize - type(uint256).max', () => {
+  const tokens = tokenize('type(uint256).max');
+  assert.strictEqual(tokens.length, 2); // TYPE_BOUND + EOF
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(uint256).max');
+});
+
+test('tokenize - type(uint256).min', () => {
+  const tokens = tokenize('type(uint256).min');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(uint256).min');
+});
+
+test('tokenize - type(int256).max', () => {
+  const tokens = tokenize('type(int256).max');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(int256).max');
+});
+
+test('tokenize - type(int256).min', () => {
+  const tokens = tokenize('type(int256).min');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(int256).min');
+});
+
+test('tokenize - type(uint).max (alias)', () => {
+  const tokens = tokenize('type(uint).max');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(uint256).max');
+});
+
+test('tokenize - type(int).min (alias)', () => {
+  const tokens = tokenize('type(int).min');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(int256).min');
+});
+
+test('tokenize - type(uint8).max', () => {
+  const tokens = tokenize('type(uint8).max');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(uint8).max');
+});
+
+test('tokenize - type(uint128).max', () => {
+  const tokens = tokenize('type(uint128).max');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(uint128).max');
+});
+
+test('tokenize - type(int8).min', () => {
+  const tokens = tokenize('type(int8).min');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(int8).min');
+});
+
+test('tokenize - type(int128).max', () => {
+  const tokens = tokenize('type(int128).max');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(int128).max');
+});
+
+test('tokenize - type bound in expression', () => {
+  const tokens = tokenize('type(uint256).max + 1');
+  assert.strictEqual(tokens.length, 4); // TYPE_BOUND, +, NUMBER, EOF
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[0]!.value, 'type(uint256).max');
+  assert.strictEqual(tokens[1]!.type, TokenType.PLUS);
+  assert.strictEqual(tokens[2]!.type, TokenType.NUMBER);
+  assert.strictEqual(tokens[2]!.value, '1');
+});
+
+test('tokenize - type bound with arithmetic', () => {
+  const tokens = tokenize('type(uint128).max * 2');
+  assert.strictEqual(tokens.length, 4);
+  assert.strictEqual(tokens[0]!.type, TokenType.TYPE_BOUND);
+  assert.strictEqual(tokens[1]!.type, TokenType.MULTIPLY);
+  assert.strictEqual(tokens[2]!.type, TokenType.NUMBER);
+});
+
+test('tokenize - invalid type bound (non-multiple of 8)', () => {
+  assert.throws(
+    () => tokenize('type(uint7).max'),
+    (err: Error) => {
+      return err instanceof ParseError && err.message.includes('Invalid Solidity type');
+    }
+  );
+});
+
+test('tokenize - invalid type bound (too large)', () => {
+  assert.throws(
+    () => tokenize('type(uint512).max'),
+    (err: Error) => {
+      return err instanceof ParseError && err.message.includes('Invalid Solidity type');
+    }
+  );
+});
+
+test('tokenize - invalid type bound (too small)', () => {
+  assert.throws(
+    () => tokenize('type(uint4).max'),
+    (err: Error) => {
+      return err instanceof ParseError && err.message.includes('Invalid Solidity type');
+    }
+  );
+});
+
+test('tokenize - type keyword without bound pattern', () => {
+  // "type" alone should be treated as identifier
+  const tokens = tokenize('type');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.IDENTIFIER);
+  assert.strictEqual(tokens[0]!.value, 'type');
+});
+
+test('tokenize - type bound position tracking', () => {
+  const tokens = tokenize('type(uint256).max + 5');
+  assert.strictEqual(tokens[0]!.position, 0); // type(uint256).max at position 0
+  assert.strictEqual(tokens[1]!.position, 18); // + at position 18
+  assert.strictEqual(tokens[2]!.position, 20); // 5 at position 20
 });

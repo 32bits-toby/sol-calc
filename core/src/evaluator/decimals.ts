@@ -10,7 +10,7 @@
  * - Addition/Subtraction: decimals must match exactly
  */
 
-import { DecimalMismatchError } from '../types';
+import { DecimalMismatchError } from '../types.js';
 
 /**
  * Calculates the resulting decimals for a multiplication operation.

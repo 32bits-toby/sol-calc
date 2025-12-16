@@ -14,7 +14,7 @@ export type {
   TokenType,
   ASTNode,
   EvaluatedValue,
-} from './types';
+} from './types.js';
 
 // Re-export errors
 export {
@@ -26,18 +26,18 @@ export {
   DivisionByZeroError,
   UndefinedVariableError,
   MissingDecimalsError,
-} from './types';
+} from './types.js';
 
 // Re-export core functions
-export { tokenize } from './parser/tokenize';
-export { parse } from './parser/parse';
-export { evaluate, evaluateWithTargetDecimals } from './evaluator/evaluate';
-export { formatWithDecimals } from './evaluator/decimals';
+export { tokenize } from './parser/tokenize.js';
+export { parse } from './parser/parse.js';
+export { evaluate, evaluateWithTargetDecimals } from './evaluator/evaluate.js';
+export { formatWithDecimals } from './evaluator/decimals.js';
 
-import { tokenize } from './parser/tokenize';
-import { parse } from './parser/parse';
-import { evaluate, evaluateWithTargetDecimals } from './evaluator/evaluate';
-import { Variable, EvaluationResult, RoundingMode, ASTNode, IdentifierNode, ASTNodeType } from './types';
+import { tokenize } from './parser/tokenize.js';
+import { parse } from './parser/parse.js';
+import { evaluate, evaluateWithTargetDecimals } from './evaluator/evaluate.js';
+import { Variable, EvaluationResult, RoundingMode, ASTNode, IdentifierNode, ASTNodeType } from './types.js';
 
 /**
  * High-level function to evaluate an expression string.

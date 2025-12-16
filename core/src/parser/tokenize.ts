@@ -11,7 +11,7 @@
  * - Parentheses: ( )
  */
 
-import { Token, TokenType, ParseError } from '../types';
+import { Token, TokenType, ParseError } from '../types.js';
 
 /**
  * Tokenizes an expression string.
@@ -31,6 +31,17 @@ export function tokenize(input: string): Token[] {
     if (isWhitespace(char!)) {
       position++;
       continue;
+    }
+
+    // Check for type bounds (type(uintX|intX).max/min) before other identifiers
+    if (char === 't' && input.substring(position, position + 5) === 'type(') {
+      const typeBoundResult = readTypeBound(input, position);
+      if (typeBoundResult) {
+        tokens.push(typeBoundResult.token);
+        position = typeBoundResult.endPosition;
+        continue;
+      }
+      // If not a valid type bound, fall through to identifier handling
     }
 
     // Numbers (including scientific notation)
@@ -171,6 +182,65 @@ function readIdentifier(input: string, startPos: number): Token {
     type: TokenType.IDENTIFIER,
     value,
     position: startPos,
+  };
+}
+
+/**
+ * Attempts to read a Solidity type bound token.
+ *
+ * Supported formats:
+ * - type(uint8).max through type(uint256).max
+ * - type(int8).min through type(int256).min
+ * - type(uint).max (alias for uint256)
+ * - type(int).max (alias for int256)
+ *
+ * Pattern: type\((u?int)(\d+)?\)\.(max|min)
+ *
+ * Returns null if the pattern doesn't match (allowing fallback to normal identifier).
+ */
+function readTypeBound(input: string, startPos: number): { token: Token; endPosition: number } | null {
+  // Match pattern: type(uint256).max or type(int128).min
+  const pattern = /^type\((u?int)(\d+)?\)\.(max|min)/;
+  const match = input.substring(startPos).match(pattern);
+
+  if (!match) {
+    return null;
+  }
+
+  const fullMatch = match[0]!;
+  const isSigned = match[1] === 'int';  // true if 'int', false if 'uint'
+  const bitsStr = match[2];  // undefined for 'uint' or 'int' aliases
+  const bound = match[3] as 'max' | 'min';
+
+  // Determine bit size
+  let bits: number;
+  if (bitsStr) {
+    bits = parseInt(bitsStr, 10);
+  } else {
+    // Alias: uint or int → 256
+    bits = 256;
+  }
+
+  // Validate bit size (must be 8, 16, 24, ..., 256)
+  if (bits % 8 !== 0 || bits < 8 || bits > 256) {
+    throw new ParseError(
+      `Invalid Solidity type: ${isSigned ? 'int' : 'uint'}${bits}. ` +
+      `Supported types: uint8-uint256 (multiples of 8) and int8-int256 (multiples of 8).`,
+      startPos
+    );
+  }
+
+  // Construct the full type name for the token value
+  const typeName = `${isSigned ? 'int' : 'uint'}${bitsStr || '256'}`;
+  const tokenValue = `type(${typeName}).${bound}`;
+
+  return {
+    token: {
+      type: TokenType.TYPE_BOUND,
+      value: tokenValue,
+      position: startPos,
+    },
+    endPosition: startPos + fullMatch.length,
   };
 }
 

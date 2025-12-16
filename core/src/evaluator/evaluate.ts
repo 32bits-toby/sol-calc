@@ -15,15 +15,17 @@ import {
   EvaluatedValue,
   EvaluationResult,
   RoundingMode,
+  OverflowWarning,
   DivisionByZeroError,
   UndefinedVariableError,
   MissingDecimalsError,
   InvalidExponentiationError,
   NumberLiteralNode,
+  TypeBoundLiteralNode,
   IdentifierNode,
   BinaryOpNode,
   ExponentiationNode,
-} from '../types';
+} from '../types.js';
 import {
   multiplyDecimals,
   divideDecimals,
@@ -31,8 +33,8 @@ import {
   subtractDecimals,
   formatWithDecimals,
   trimTrailingZeros,
-} from './decimals';
-import { applyRounding, calculateRoundingLoss } from './rounding';
+} from './decimals.js';
+import { applyRounding, calculateRoundingLoss } from './rounding.js';
 
 /**
  * Evaluates an expression AST with given variable values.
@@ -47,8 +49,11 @@ export function evaluate(
   variables: Map<string, Variable>,
   roundingMode: RoundingMode = 'floor'
 ): EvaluationResult {
+  // Track type bounds used in the expression for overflow detection
+  const typeBounds = new Set<string>();
+
   // Evaluate the AST to get raw value and decimals
-  const result = evaluateNode(ast, variables, roundingMode);
+  const result = evaluateNode(ast, variables, roundingMode, typeBounds);
 
   // Format human-readable representation
   const human = formatWithDecimals(result.value, result.decimals);
@@ -71,12 +76,16 @@ export function evaluate(
     roundingLoss = trimTrailingZeros(rawLoss);
   }
 
+  // Check for overflow/underflow if type bounds were used
+  const warning = detectOverflow(result.value, typeBounds);
+
   return {
     raw: result.value,
     decimals: result.decimals,
     human,
     solidity,
     roundingLoss,
+    warning,
   };
 }
 
@@ -88,19 +97,27 @@ export function evaluate(
  * @param roundingMode - Rounding mode for division operations
  * @returns Evaluated value with decimals
  */
-function evaluateNode(node: ASTNode, variables: Map<string, Variable>, roundingMode: RoundingMode): EvaluatedValue {
+function evaluateNode(
+  node: ASTNode,
+  variables: Map<string, Variable>,
+  roundingMode: RoundingMode,
+  typeBounds?: Set<string>
+): EvaluatedValue {
   switch (node.type) {
     case ASTNodeType.NUMBER_LITERAL:
       return evaluateNumberLiteral(node as NumberLiteralNode);
+
+    case ASTNodeType.TYPE_BOUND_LITERAL:
+      return evaluateTypeBoundLiteral(node as TypeBoundLiteralNode, typeBounds);
 
     case ASTNodeType.IDENTIFIER:
       return evaluateIdentifier(node as IdentifierNode, variables);
 
     case ASTNodeType.BINARY_OP:
-      return evaluateBinaryOp(node as BinaryOpNode, variables, roundingMode);
+      return evaluateBinaryOp(node as BinaryOpNode, variables, roundingMode, typeBounds);
 
     case ASTNodeType.EXPONENTIATION:
-      return evaluateExponentiation(node as ExponentiationNode, variables, roundingMode);
+      return evaluateExponentiation(node as ExponentiationNode, variables, roundingMode, typeBounds);
 
     default:
       // This should never happen with proper TypeScript typing
@@ -115,6 +132,24 @@ function evaluateNumberLiteral(node: NumberLiteralNode): EvaluatedValue {
   return {
     value: node.value,
     decimals: node.decimals, // Always 0 for literals
+  };
+}
+
+/**
+ * Evaluates a type bound literal node.
+ *
+ * Type bounds are always scalars (decimals = 0).
+ * If a typeBounds set is provided, track the type for overflow detection.
+ */
+function evaluateTypeBoundLiteral(node: TypeBoundLiteralNode, typeBounds?: Set<string>): EvaluatedValue {
+  // Track the type bound for overflow detection
+  if (typeBounds) {
+    typeBounds.add(node.solidityType);
+  }
+
+  return {
+    value: node.value,
+    decimals: 0,  // Type bounds are always scalars
   };
 }
 
@@ -146,11 +181,11 @@ function evaluateIdentifier(node: IdentifierNode, variables: Map<string, Variabl
 /**
  * Evaluates a binary operation (+, -, *, /).
  */
-function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>, roundingMode: RoundingMode): EvaluatedValue {
+function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>, roundingMode: RoundingMode, typeBounds?: Set<string>): EvaluatedValue {
   // Special handling for addition/subtraction with scalar literal coercion
   if (node.operator === '+' || node.operator === '-') {
-    const left = evaluateNode(node.left, variables, roundingMode);
-    const right = evaluateNode(node.right, variables, roundingMode);
+    const left = evaluateNode(node.left, variables, roundingMode, typeBounds);
+    const right = evaluateNode(node.right, variables, roundingMode, typeBounds);
 
     // Scalar literal coercion: if a literal scalar is added/subtracted with a fixed-point value,
     // lift the scalar to match the fixed-point value's decimals.
@@ -192,8 +227,8 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>, 
   }
 
   // For other operators (*, /), evaluate normally
-  const left = evaluateNode(node.left, variables, roundingMode);
-  const right = evaluateNode(node.right, variables, roundingMode);
+  const left = evaluateNode(node.left, variables, roundingMode, typeBounds);
+  const right = evaluateNode(node.right, variables, roundingMode, typeBounds);
 
   if (node.operator === '*') {
     return {
@@ -255,7 +290,8 @@ function evaluateBinaryOp(node: BinaryOpNode, variables: Map<string, Variable>, 
 function evaluateExponentiation(
   node: ExponentiationNode,
   variables: Map<string, Variable>,
-  roundingMode: RoundingMode
+  roundingMode: RoundingMode,
+  typeBounds?: Set<string>
 ): EvaluatedValue {
   // Validate that base is a literal 10
   if (node.base.type !== ASTNodeType.NUMBER_LITERAL) {
@@ -268,7 +304,7 @@ function evaluateExponentiation(
   }
 
   // Evaluate the exponent
-  const exponent = evaluateNode(node.exponent, variables, roundingMode);
+  const exponent = evaluateNode(node.exponent, variables, roundingMode, typeBounds);
 
   // Validate that exponent is dimensionless (decimals = 0)
   if (exponent.decimals !== 0) {
@@ -320,8 +356,11 @@ export function evaluateWithTargetDecimals(
   targetDecimals: number,
   roundingMode: RoundingMode = 'floor'
 ): EvaluationResult {
+  // Track type bounds for overflow detection
+  const typeBounds = new Set<string>();
+
   // Evaluate without scaling
-  const result = evaluateNode(ast, variables, roundingMode);
+  const result = evaluateNode(ast, variables, roundingMode, typeBounds);
 
   // Scale to target decimals with rounding
   const scaledValue = applyRounding(result.value, result.decimals, targetDecimals, roundingMode);
@@ -335,12 +374,16 @@ export function evaluateWithTargetDecimals(
   const solidity = scaledValue;
   const roundingLoss = formatWithDecimals(loss, result.decimals);
 
+  // Check for overflow/underflow if type bounds were used
+  const warning = detectOverflow(result.value, typeBounds);
+
   return {
     raw,
     decimals: result.decimals,
     human,
     solidity,
     roundingLoss,
+    warning,
   };
 }
 
@@ -393,4 +436,110 @@ function calculateDivisionLoss(
 
   // Add negative sign for ceil
   return isNegative ? `-${formatted}` : formatted;
+}
+
+/**
+ * Detects if a value would overflow/underflow any of the used Solidity types.
+ *
+ * Returns a warning if overflow is detected, otherwise undefined.
+ *
+ * @param value - The computed result value
+ * @param typeBounds - Set of Solidity types used in the expression
+ * @returns OverflowWarning if overflow detected, undefined otherwise
+ */
+function detectOverflow(value: bigint, typeBounds: Set<string>): OverflowWarning | undefined {
+  if (typeBounds.size === 0) {
+    return undefined;
+  }
+
+  // Check each type bound to see if the value overflows
+  for (const solidityType of typeBounds) {
+    const match = solidityType.match(/^(u?int)(\d+)$/);
+    if (!match) {
+      continue;
+    }
+
+    const isSigned = match[1] === 'int';
+    const bits = parseInt(match[2]!, 10);
+
+    let min: bigint;
+    let max: bigint;
+
+    if (!isSigned) {
+      // Unsigned: uintX
+      min = 0n;
+      max = (2n ** BigInt(bits)) - 1n;
+    } else {
+      // Signed: intX
+      min = -(2n ** BigInt(bits - 1));
+      max = (2n ** BigInt(bits - 1)) - 1n;
+    }
+
+    // Check if value is outside the range
+    if (value > max) {
+      // Overflow
+      const wrappedValue = calculateWrappedValue(value, bits, isSigned);
+      const wrappedHuman = wrappedValue.toString();
+
+      return {
+        solidityType,
+        kind: 'overflow',
+        wrappedValue,
+        wrappedHuman,
+      };
+    } else if (value < min) {
+      // Underflow
+      const wrappedValue = calculateWrappedValue(value, bits, isSigned);
+      const wrappedHuman = wrappedValue.toString();
+
+      return {
+        solidityType,
+        kind: 'underflow',
+        wrappedValue,
+        wrappedHuman,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Calculates the wrapped value according to Solidity semantics.
+ *
+ * Unsigned (uintX): wrapped = value mod (2^bits)
+ * Signed (intX):   wrapped = ((value mod range) + range) mod range
+ *                  then convert to signed representation
+ *
+ * @param value - The value that overflows
+ * @param bits - The bit size of the type
+ * @param isSigned - Whether the type is signed
+ * @returns The wrapped value
+ */
+function calculateWrappedValue(value: bigint, bits: number, isSigned: boolean): bigint {
+  const range = 2n ** BigInt(bits);
+
+  if (!isSigned) {
+    // Unsigned: simple modulo
+    let wrapped = value % range;
+    // Handle negative values (bring into positive range)
+    if (wrapped < 0n) {
+      wrapped += range;
+    }
+    return wrapped;
+  } else {
+    // Signed: wrap to unsigned first, then convert to signed representation
+    let wrappedUnsigned = value % range;
+    if (wrappedUnsigned < 0n) {
+      wrappedUnsigned += range;
+    }
+
+    // Convert to signed representation
+    const half = 2n ** BigInt(bits - 1);
+    if (wrappedUnsigned >= half) {
+      return wrappedUnsigned - range;
+    } else {
+      return wrappedUnsigned;
+    }
+  }
 }

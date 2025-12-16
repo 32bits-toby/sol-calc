@@ -4,9 +4,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { tokenize } from '../parser/tokenize';
-import { parse } from '../parser/parse';
-import { ASTNodeType, ParseError } from '../types';
+import { tokenize } from '../parser/tokenize.js';
+import { parse } from '../parser/parse.js';
+import { ASTNodeType, ParseError } from '../types.js';
 
 test('parse - number literal', () => {
   const tokens = tokenize('123');
@@ -205,4 +205,140 @@ test('parse - associativity: right for exponentiation', () => {
   assert.strictEqual((ast as any).base.type, ASTNodeType.NUMBER_LITERAL);
   assert.strictEqual((ast as any).base.value, 10n);
   assert.strictEqual((ast as any).exponent.type, ASTNodeType.EXPONENTIATION);
+});
+
+// ============================================================================
+// Type Bounds Parser Tests
+// ============================================================================
+
+test('parse - type(uint256).max', () => {
+  const tokens = tokenize('type(uint256).max');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, (2n ** 256n) - 1n);
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'uint256');
+  assert.strictEqual((ast as any).bound, 'max');
+});
+
+test('parse - type(uint256).min', () => {
+  const tokens = tokenize('type(uint256).min');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, 0n);
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'uint256');
+  assert.strictEqual((ast as any).bound, 'min');
+});
+
+test('parse - type(int256).max', () => {
+  const tokens = tokenize('type(int256).max');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, (2n ** 255n) - 1n);
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'int256');
+  assert.strictEqual((ast as any).bound, 'max');
+});
+
+test('parse - type(int256).min', () => {
+  const tokens = tokenize('type(int256).min');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, -(2n ** 255n));
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'int256');
+  assert.strictEqual((ast as any).bound, 'min');
+});
+
+test('parse - type(uint8).max', () => {
+  const tokens = tokenize('type(uint8).max');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, 255n);
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'uint8');
+});
+
+test('parse - type(uint128).max', () => {
+  const tokens = tokenize('type(uint128).max');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, (2n ** 128n) - 1n);
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'uint128');
+});
+
+test('parse - type(int8).min', () => {
+  const tokens = tokenize('type(int8).min');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, -128n);
+  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).solidityType, 'int8');
+});
+
+test('parse - type(int8).max', () => {
+  const tokens = tokenize('type(int8).max');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, 127n);
+  assert.strictEqual((ast as any).decimals, 0);
+});
+
+test('parse - type bound alias uint', () => {
+  const tokens = tokenize('type(uint).max');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, (2n ** 256n) - 1n);
+  assert.strictEqual((ast as any).solidityType, 'uint256');
+});
+
+test('parse - type bound alias int', () => {
+  const tokens = tokenize('type(int).min');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).value, -(2n ** 255n));
+  assert.strictEqual((ast as any).solidityType, 'int256');
+});
+
+test('parse - type bound in addition', () => {
+  const tokens = tokenize('type(uint256).max + 1');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.BINARY_OP);
+  assert.strictEqual((ast as any).operator, '+');
+  assert.strictEqual((ast as any).left.type, ASTNodeType.TYPE_BOUND_LITERAL);
+  assert.strictEqual((ast as any).right.type, ASTNodeType.NUMBER_LITERAL);
+});
+
+test('parse - type bound in subtraction', () => {
+  const tokens = tokenize('type(int256).min - 1');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.BINARY_OP);
+  assert.strictEqual((ast as any).operator, '-');
+  assert.strictEqual((ast as any).left.type, ASTNodeType.TYPE_BOUND_LITERAL);
+});
+
+test('parse - type bound in multiplication', () => {
+  const tokens = tokenize('type(uint128).max * 2');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.BINARY_OP);
+  assert.strictEqual((ast as any).operator, '*');
+  assert.strictEqual((ast as any).left.type, ASTNodeType.TYPE_BOUND_LITERAL);
+});
+
+test('parse - type bound in division', () => {
+  const tokens = tokenize('type(uint256).max / 1e18');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.BINARY_OP);
+  assert.strictEqual((ast as any).operator, '/');
+});
+
+test('parse - type bound in parentheses', () => {
+  const tokens = tokenize('(type(uint256).max + 1) / 2');
+  const ast = parse(tokens);
+  assert.strictEqual(ast.type, ASTNodeType.BINARY_OP);
+  assert.strictEqual((ast as any).operator, '/');
+  assert.strictEqual((ast as any).left.type, ASTNodeType.BINARY_OP);
+  assert.strictEqual((ast as any).left.operator, '+');
 });

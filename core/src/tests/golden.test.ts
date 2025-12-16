@@ -8,8 +8,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { evaluateExpression } from '../index';
-import { Variable } from '../types';
+import { evaluateExpression } from '../index.js';
+import { Variable } from '../types.js';
 
 function vars(obj: Record<string, { value: bigint; decimals: number }>): Map<string, Variable> {
   const map = new Map<string, Variable>();

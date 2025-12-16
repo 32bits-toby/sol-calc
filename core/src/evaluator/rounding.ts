@@ -8,8 +8,8 @@
  * - Ceil: Round towards positive infinity (e.g., mulDivUp)
  */
 
-import { RoundingMode } from '../types';
-import { scaleToDecimals } from './decimals';
+import { RoundingMode } from '../types.js';
+import { scaleToDecimals } from './decimals.js';
 
 /**
  * Applies rounding when scaling a value to target decimals.

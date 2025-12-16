@@ -37,6 +37,7 @@ export interface Variable {
 export enum TokenType {
   NUMBER = 'NUMBER',           // Integer literal or scientific notation
   IDENTIFIER = 'IDENTIFIER',   // Variable name
+  TYPE_BOUND = 'TYPE_BOUND',   // type(uintX).max/min or type(intX).max/min
   PLUS = 'PLUS',               // +
   MINUS = 'MINUS',             // -
   MULTIPLY = 'MULTIPLY',       // *
@@ -59,6 +60,7 @@ export interface Token {
 
 export enum ASTNodeType {
   NUMBER_LITERAL = 'NUMBER_LITERAL',
+  TYPE_BOUND_LITERAL = 'TYPE_BOUND_LITERAL',
   IDENTIFIER = 'IDENTIFIER',
   BINARY_OP = 'BINARY_OP',
   EXPONENTIATION = 'EXPONENTIATION',
@@ -75,6 +77,23 @@ export interface NumberLiteralNode {
   type: ASTNodeType.NUMBER_LITERAL;
   value: bigint;
   decimals: number;  // Always 0 for literals
+}
+
+/**
+ * Represents a Solidity type bound (type(uintX).max/min or type(intX).max/min).
+ *
+ * Examples:
+ * - "type(uint256).max" → { value: 2n**256n - 1n, decimals: 0, solidityType: "uint256", bound: "max" }
+ * - "type(int128).min" → { value: -(2n**127n), decimals: 0, solidityType: "int128", bound: "min" }
+ *
+ * CRITICAL: Type bounds are ALWAYS scalars (decimals = 0).
+ */
+export interface TypeBoundLiteralNode {
+  type: ASTNodeType.TYPE_BOUND_LITERAL;
+  value: bigint;
+  decimals: number;  // Always 0 for type bounds
+  solidityType: string;  // e.g., "uint256", "int128"
+  bound: 'max' | 'min';
 }
 
 /**
@@ -112,6 +131,7 @@ export interface ExponentiationNode {
 
 export type ASTNode =
   | NumberLiteralNode
+  | TypeBoundLiteralNode
   | IdentifierNode
   | BinaryOpNode
   | ExponentiationNode;
@@ -142,6 +162,31 @@ export interface EvaluatedValue {
 // ============================================================================
 // Evaluation Result (Output)
 // ============================================================================
+
+/**
+ * Warning about overflow/underflow when using type bounds.
+ */
+export interface OverflowWarning {
+  /**
+   * The Solidity type that would overflow/underflow.
+   */
+  solidityType: string;
+
+  /**
+   * Whether this is an overflow (exceeds max) or underflow (below min).
+   */
+  kind: 'overflow' | 'underflow';
+
+  /**
+   * The value after wrapping according to Solidity semantics.
+   */
+  wrappedValue: bigint;
+
+  /**
+   * Human-readable wrapped value.
+   */
+  wrappedHuman: string;
+}
 
 /**
  * The final result of evaluating an expression.
@@ -176,6 +221,12 @@ export interface EvaluationResult {
    * Example: "0.000000000000000001" or "0" if no loss
    */
   roundingLoss: string;
+
+  /**
+   * Optional warning if the result would overflow/underflow in Solidity.
+   * This is informational only and does not affect the computed result.
+   */
+  warning?: OverflowWarning;
 }
 
 // ============================================================================

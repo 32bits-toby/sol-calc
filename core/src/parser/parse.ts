@@ -20,11 +20,12 @@ import {
   ASTNode,
   ASTNodeType,
   NumberLiteralNode,
+  TypeBoundLiteralNode,
   IdentifierNode,
   BinaryOpNode,
   ExponentiationNode,
   ParseError,
-} from '../types';
+} from '../types.js';
 
 export class Parser {
   private tokens: Token[];
@@ -135,6 +136,12 @@ export class Parser {
     if (token.type === TokenType.NUMBER) {
       this.advance();
       return this.parseNumberLiteral(token.value);
+    }
+
+    // Type bound (type(uintX|intX).max/min)
+    if (token.type === TokenType.TYPE_BOUND) {
+      this.advance();
+      return this.parseTypeBound(token.value);
     }
 
     // Identifier (variable reference)
@@ -259,6 +266,66 @@ export class Parser {
     // Calculate mantissa * 10^exponent
     const multiplier = 10n ** BigInt(exponent);
     return mantissa * multiplier;
+  }
+
+  /**
+   * Parses a Solidity type bound and calculates its value.
+   *
+   * Examples:
+   * - "type(uint256).max" → 2^256 - 1
+   * - "type(uint128).max" → 2^128 - 1
+   * - "type(int256).max" → 2^255 - 1
+   * - "type(int256).min" → -2^255
+   * - "type(uint256).min" → 0
+   *
+   * CRITICAL: All type bounds are scalars (decimals = 0).
+   */
+  private parseTypeBound(value: string): TypeBoundLiteralNode {
+    // Extract components: type(uint256).max → type="uint256", bound="max"
+    const match = value.match(/^type\((u?int)(\d+)?\)\.(max|min)$/);
+
+    if (!match) {
+      throw new ParseError(`Invalid type bound: ${value}`, this.position);
+    }
+
+    const isSigned = match[1] === 'int';
+    const bitsStr = match[2] || '256';
+    const bound = match[3] as 'max' | 'min';
+    const bits = parseInt(bitsStr, 10);
+
+    // Construct the type name
+    const solidityType = `${isSigned ? 'int' : 'uint'}${bitsStr}`;
+
+    // Calculate the bound value
+    let boundValue: bigint;
+
+    if (!isSigned) {
+      // Unsigned: uintX
+      if (bound === 'max') {
+        // 2^bits - 1
+        boundValue = (2n ** BigInt(bits)) - 1n;
+      } else {
+        // min is always 0 for unsigned
+        boundValue = 0n;
+      }
+    } else {
+      // Signed: intX
+      if (bound === 'max') {
+        // 2^(bits-1) - 1
+        boundValue = (2n ** BigInt(bits - 1)) - 1n;
+      } else {
+        // -2^(bits-1)
+        boundValue = -(2n ** BigInt(bits - 1));
+      }
+    }
+
+    return {
+      type: ASTNodeType.TYPE_BOUND_LITERAL,
+      value: boundValue,
+      decimals: 0,  // ALWAYS 0 - type bounds are scalars
+      solidityType,
+      bound,
+    };
   }
 
   /**

@@ -40,3 +40,56 @@
   line-height: 1.5;
   font-family: var(--font-ui);
 }
+
+/* Overflow styling */
+.results-overflow {
+  background-color: rgba(255, 191, 0, 0.1);
+  border-color: rgba(255, 191, 0, 0.3);
+}
+
+:root[data-theme="light"] .results-overflow {
+  background-color: rgba(255, 191, 0, 0.08);
+  border-color: rgba(255, 191, 0, 0.25);
+}
+
+.overflow-panel {
+  margin-top: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: var(--spacing-md);
+}
+
+.overflow-warning {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+  margin-bottom: var(--spacing-md);
+  line-height: 1.6;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.overflow-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.overflow-wrapped {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.overflow-wrapped-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.overflow-wrapped-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}

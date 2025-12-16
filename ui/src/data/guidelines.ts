@@ -442,18 +442,74 @@ export const GUIDELINES: GuidelineSection[] = [
     ],
   },
   {
+    id: 'type-bounds',
+    title: 'Solidity Type Bounds',
+    guidelines: [
+      {
+        id: 'tb-1',
+        title: 'Type Bounds Are Scalars',
+        rule: 'type(uintX).max, type(uintX).min, type(intX).max, and type(intX).min are scalar values with decimals = 0.',
+        explanation: 'Solidity type bounds represent the mathematical limits of integer types, not token amounts. They are dimensionless scalars used for overflow checks and sentinel values.',
+        examples: [
+          { code: 'type(uint256).max → 2^256 - 1 (decimals: 0)', label: 'Maximum unsigned value' },
+          { code: 'type(int128).min → -2^127 (decimals: 0)', label: 'Minimum signed value' },
+          { code: 'type(uint8).max → 255', label: 'Small type bound' },
+        ],
+        auditRelevance: 'Type bounds are used for overflow checks, caps, and sentinel values. Verify they are never mixed with scaled token amounts without proper conversion.',
+      },
+      {
+        id: 'tb-2',
+        title: 'Supported Type Ranges',
+        rule: 'SolCalc supports all Solidity integer types: uint8 through uint256 and int8 through int256 (multiples of 8).',
+        explanation: 'uint = uint256 and int = int256 are aliases. Unsigned types range from 0 to 2^N - 1. Signed types range from -2^(N-1) to 2^(N-1) - 1.',
+        examples: [
+          { code: 'uint8: 0 to 255', label: '8-bit unsigned' },
+          { code: 'uint256: 0 to 2^256 - 1', label: '256-bit unsigned' },
+          { code: 'int8: -128 to 127', label: '8-bit signed' },
+          { code: 'int256: -2^255 to 2^255 - 1', label: '256-bit signed' },
+        ],
+        auditRelevance: 'Verify contracts use appropriate type sizes. Smaller types (uint8, uint64) can save gas but increase overflow risk. uint256 is the safest default.',
+      },
+      {
+        id: 'tb-3',
+        title: 'Overflow Detection and Wrapping',
+        rule: 'When arithmetic on type bounds exceeds the type\'s range, SolCalc shows both the unbounded result and the wrapped Solidity value.',
+        explanation: 'SolCalc computes using unbounded math (no overflow), then checks if the result would overflow in Solidity. If so, it displays a warning with the wrapped value according to Solidity modulo semantics.',
+        examples: [
+          { code: 'type(uint256).max + 1 → Unbounded result + wrap preview', label: 'Overflow detection' },
+          { code: 'type(uint256).max + 3 → Wraps to 2', label: 'Modulo 2^256' },
+          { code: 'type(int256).min - 1 → Wraps to max', label: 'Signed underflow' },
+        ],
+        auditRelevance: 'In unchecked blocks, Solidity arithmetic wraps silently. SolCalc helps auditors reason about overflow behavior without executing contracts. Verify wrapping is intentional.',
+      },
+      {
+        id: 'tb-4',
+        title: 'Common Audit Patterns',
+        rule: 'Type bounds are used for caps, overflow checks, and sentinel values. Verify these patterns are implemented correctly.',
+        explanation: 'Protocols use type(uintX).max for unlimited approvals, caps on user inputs, and sentinel values. Auditors must verify these don\'t create vulnerabilities.',
+        examples: [
+          { code: 'require(amount <= type(uint256).max / 1e18)', label: 'Prevent overflow after scaling' },
+          { code: 'if (allowance == type(uint256).max) return;', label: 'Unlimited approval check' },
+          { code: 'uint256 cap = type(uint128).max;', label: 'Safe cap for downcasting' },
+        ],
+        auditRelevance: 'Verify overflow checks are correct. Ensure sentinel values (like max approval) don\'t bypass critical logic. Check downcasting doesn\'t silently truncate values.',
+      },
+    ],
+  },
+  {
     id: 'advanced',
     title: 'Advanced / Audit-Grade',
     guidelines: [
       {
         id: 'adv-1',
-        title: 'Overflow Checking',
-        rule: 'SolCalc uses BigInt, so overflows are not possible. Solidity 0.8+ has automatic overflow checks.',
-        explanation: 'Before Solidity 0.8, arithmetic could silently overflow (wrapping). Modern Solidity reverts on overflow. SolCalc mirrors this behavior by never overflowing.',
+        title: 'Overflow Behavior in Solidity',
+        rule: 'Solidity 0.8+ reverts on overflow by default. In unchecked blocks, arithmetic wraps modulo 2^256 (or the type size).',
+        explanation: 'Before Solidity 0.8, arithmetic could silently overflow. Modern Solidity reverts unless wrapped in an unchecked{} block. SolCalc shows what the wrapped value would be.',
         examples: [
-          { code: 'type(uint256).max + 1 → Reverts in Solidity 0.8+', label: 'Overflow protection' },
+          { code: 'type(uint256).max + 1 → Reverts (Solidity 0.8+)', label: 'Checked overflow' },
+          { code: 'unchecked { type(uint256).max + 1 } → Wraps to 0', label: 'Unchecked overflow' },
         ],
-        auditRelevance: 'For Solidity <0.8, verify SafeMath is used. For 0.8+, verify unchecked blocks are intentional and safe. SolCalc cannot test overflow behavior.',
+        auditRelevance: 'For Solidity <0.8, verify SafeMath is used. For 0.8+, verify unchecked blocks are intentional and safe. Use SolCalc to preview overflow behavior before it happens on-chain.',
       },
       {
         id: 'adv-2',
