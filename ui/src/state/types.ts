@@ -2,7 +2,7 @@
  * UI State Types
  */
 
-import type { EvaluationResult, RoundingMode } from '@solcalc/core';
+import type { EvaluationResult, ComparisonResult, RoundingMode } from '@solcalc/core';
 
 export interface VariableInput {
   name: string;
@@ -20,7 +20,7 @@ export interface CalculatorState {
   theme: Theme;
 
   // Computed/derived state
-  result: EvaluationResult | null;
+  result: EvaluationResult | ComparisonResult | null;
   error: string | null;
   isEvaluating: boolean;
 }

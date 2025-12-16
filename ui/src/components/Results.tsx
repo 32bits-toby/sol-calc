@@ -13,6 +13,11 @@
 import { useCalculator } from '../state/store';
 import './Results.css';
 
+// Type guard to check if result is a comparison result
+function isComparisonResult(result: any): result is { result: boolean; operator: string; leftHuman: string; rightHuman: string; decimals: number; warning?: any } {
+  return 'result' in result && 'operator' in result && typeof result.result === 'boolean';
+}
+
 export function Results() {
   const { result, error } = useCalculator();
 
@@ -29,6 +34,60 @@ export function Results() {
 
   if (!result) {
     return null;
+  }
+
+  // Handle comparison results differently
+  if (isComparisonResult(result)) {
+    const hasOverflow = result.warning !== undefined;
+
+    return (
+      <div className="results-section">
+        <div className="results-label">Comparison Result</div>
+        <div className={`results-output mono ${hasOverflow ? 'results-overflow' : ''}`}>
+          <div className="result-line">
+            <span className="result-key">Result:</span>
+            <span className={`result-value ${result.result ? 'text-success' : 'text-error'}`}>
+              {result.result ? 'true' : 'false'}
+            </span>
+          </div>
+          <div className="result-line">
+            <span className="result-key">Operator:</span>
+            <span className="result-value">{result.operator}</span>
+          </div>
+          <div className="result-line">
+            <span className="result-key">Left:</span>
+            <span className="result-value">{result.leftHuman}</span>
+          </div>
+          <div className="result-line">
+            <span className="result-key">Right:</span>
+            <span className="result-value">{result.rightHuman}</span>
+          </div>
+          <div className="result-line text-secondary">
+            <span className="result-key">Decimals:</span>
+            <span className="result-value">{result.decimals}</span>
+          </div>
+        </div>
+
+        {/* Overflow Information Panel */}
+        {result.warning && (
+          <div className="overflow-panel">
+            <div className="overflow-warning">
+              <span className="overflow-icon">⚠️</span>
+              <span>
+                Arithmetic {result.warning.kind} detected in {result.warning.solidityType} —
+                computation exceeds the {result.warning.kind === 'overflow' ? 'maximum' : 'minimum'} value
+                representable by {result.warning.solidityType}. Solidity arithmetic wraps modulo 2^
+                {result.warning.solidityType.match(/\d+/)?.[0] || '256'}.
+              </span>
+            </div>
+            <div className="overflow-wrapped">
+              <span className="overflow-wrapped-label">Wrapped Solidity Result:</span>
+              <span className="overflow-wrapped-value mono">{result.warning.wrappedHuman}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const hasOverflow = result.warning !== undefined;
