@@ -137,10 +137,13 @@ export function Results() {
               <span className="result-key">Loss:</span>
               <span className="result-value">{result.roundingLoss}</span>
             </div>
-            <div className="result-line text-secondary">
-              <span className="result-key">Decimals:</span>
-              <span className="result-value">{result.decimals}</span>
-            </div>
+            {/* Only show decimals if non-negative (negative decimals are internal edge case) */}
+            {result.decimals >= 0 && (
+              <div className="result-line text-secondary">
+                <span className="result-key">Decimals:</span>
+                <span className="result-value">{result.decimals}</span>
+              </div>
+            )}
           </>
         )}
       </div>

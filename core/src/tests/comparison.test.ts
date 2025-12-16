@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { evaluateExpression } from '../index.js';
-import { Variable, ComparisonResult, ComparisonDecimalMismatchError } from '../types.js';
+import { Variable, ComparisonResult } from '../types.js';
 
 function vars(obj: Record<string, { value: bigint; decimals: number }>): Map<string, Variable> {
   const map = new Map<string, Variable>();
@@ -250,39 +250,54 @@ test('comparison - exponentiation with type bound', () => {
 });
 
 // ============================================================================
-// Decimal Mismatch Errors (CRITICAL)
+// Auto-Normalization for Decimal Mismatches (Comparison-Only)
 // ============================================================================
 
-test('comparison - error on decimal mismatch', () => {
+test('comparison - auto-normalize different decimals (6 vs 18)', () => {
   const variables = vars({
-    usdc: { value: 1000000n, decimals: 6 },
-    weth: { value: 1000000000000000000n, decimals: 18 },
+    usdc: { value: 1000000n, decimals: 6 }, // 1.000000 (6 decimals)
+    weth: { value: 1000000000000000000n, decimals: 18 }, // 1.000000000000000000 (18 decimals)
   });
 
-  assert.throws(
-    () => evaluateExpression('usdc == weth', variables),
-    (err: Error) => {
-      return err instanceof ComparisonDecimalMismatchError &&
-        err.leftDecimals === 6 &&
-        err.rightDecimals === 18;
-    }
-  );
+  // Both represent "1", but with different decimal scales
+  // Should auto-normalize to 18 decimals and compare
+  const result = evaluateExpression('usdc == weth', variables);
+
+  assert.ok(isComparisonResult(result));
+  assert.strictEqual(result.result, true); // Both are 1, so equal
+  assert.strictEqual(result.decimals, 18); // Normalized to higher scale
 });
 
-test('comparison - error message for decimal mismatch', () => {
+test('comparison - auto-normalize with negative decimals', () => {
   const variables = vars({
-    a: { value: 1n, decimals: 6 },
-    b: { value: 1n, decimals: 18 },
+    amount: { value: 1000000000000000000n, decimals: 18 }, // 1.0 with 18 decimals
   });
 
-  try {
-    evaluateExpression('a < b', variables);
-    assert.fail('Should have thrown');
-  } catch (err: any) {
-    assert.ok(err.message.includes('Cannot compare'));
-    assert.ok(err.message.includes('6 vs 18'));
-    assert.ok(err.message.includes('Normalize decimals'));
-  }
+  // type(uint256).max / 1e18 produces -18 decimals
+  // Should auto-normalize and compare successfully
+  const result = evaluateExpression('amount <= type(uint256).max / 1e18', variables);
+
+  assert.ok(isComparisonResult(result));
+  assert.strictEqual(result.result, true);
+  // Normalized to 18 decimals (the higher of 18 and -18)
+  assert.strictEqual(result.decimals, 18);
+});
+
+test('comparison - auto-normalize preserves inequality', () => {
+  const variables = vars({
+    a: { value: 1n, decimals: 6 }, // 0.000001 (6 decimals)
+    b: { value: 1n, decimals: 18 }, // 0.000000000000000001 (18 decimals)
+  });
+
+  // After normalization to 18 decimals:
+  // a = 1 * 10^12 = 1000000000000
+  // b = 1
+  // So a > b
+  const result = evaluateExpression('a > b', variables);
+
+  assert.ok(isComparisonResult(result));
+  assert.strictEqual(result.result, true);
+  assert.strictEqual(result.decimals, 18);
 });
 
 // ============================================================================

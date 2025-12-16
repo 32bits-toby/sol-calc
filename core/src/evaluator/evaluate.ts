@@ -21,7 +21,6 @@ import {
   UndefinedVariableError,
   MissingDecimalsError,
   InvalidExponentiationError,
-  ComparisonDecimalMismatchError,
   NumberLiteralNode,
   TypeBoundLiteralNode,
   IdentifierNode,
@@ -571,17 +570,30 @@ export function evaluateComparison(
   const leftResult = evaluate(node.left, variables, roundingMode);
   const rightResult = evaluate(node.right, variables, roundingMode);
 
-  // Check decimal equality (REQUIRED)
+  // Auto-normalize if decimals don't match (comparison-mode only)
+  // This handles edge cases like comparing with negative decimals
+  let leftValue = leftResult.raw;
+  let rightValue = rightResult.raw;
+  let targetDecimals = leftResult.decimals;
+
   if (leftResult.decimals !== rightResult.decimals) {
-    throw new ComparisonDecimalMismatchError(
-      leftResult.decimals,
-      rightResult.decimals
-    );
+    // Normalize both sides to the higher (more precise) decimal scale
+    targetDecimals = Math.max(leftResult.decimals, rightResult.decimals);
+
+    if (leftResult.decimals < targetDecimals) {
+      // Scale left value up
+      const scaleFactor = 10n ** BigInt(targetDecimals - leftResult.decimals);
+      leftValue = leftResult.raw * scaleFactor;
+    }
+
+    if (rightResult.decimals < targetDecimals) {
+      // Scale right value up
+      const scaleFactor = 10n ** BigInt(targetDecimals - rightResult.decimals);
+      rightValue = rightResult.raw * scaleFactor;
+    }
   }
 
-  // Perform the comparison using raw values (unbounded, pre-rounding)
-  const leftValue = leftResult.raw;
-  const rightValue = rightResult.raw;
+  // Perform the comparison using normalized values
   let result: boolean;
 
   switch (node.operator) {
@@ -613,7 +625,7 @@ export function evaluateComparison(
     operator: node.operator,
     leftHuman: leftResult.human,
     rightHuman: rightResult.human,
-    decimals: leftResult.decimals,
+    decimals: targetDecimals,
     // Preserve overflow warning if present
     warning: leftResult.warning || rightResult.warning,
   };
