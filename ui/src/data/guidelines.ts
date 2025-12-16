@@ -1,7 +1,7 @@
 /**
  * Guideline Data
  *
- * Contains all 38 guidelines organized into 9 sections.
+ * Contains all 46 guidelines organized into 11 sections.
  * Each guideline includes: title, rule, explanation, examples, and audit relevance.
  */
 
@@ -494,6 +494,55 @@ export const GUIDELINES: GuidelineSection[] = [
           { code: 'uint256 cap = type(uint128).max;', label: 'Safe cap for downcasting' },
         ],
         auditRelevance: 'Verify overflow checks are correct. Ensure sentinel values (like max approval) don\'t bypass critical logic. Check downcasting doesn\'t silently truncate values.',
+      },
+    ],
+  },
+  {
+    id: 'comparisons',
+    title: 'Comparison Operators',
+    guidelines: [
+      {
+        id: 'cmp-1',
+        title: 'Comparison Operators Supported',
+        rule: 'SolCalc supports all Solidity comparison operators: == (equal), != (not equal), < (less than), <= (less than or equal), > (greater than), >= (greater than or equal).',
+        explanation: 'Comparison expressions evaluate to boolean results (true/false) instead of numeric values. The comparison happens at the top level only - you cannot nest or chain comparisons.',
+        examples: [
+          { code: 'amount > balance → true or false', label: 'Simple comparison' },
+          { code: 'type(uint256).max > 0 → true', label: 'Type bound comparison' },
+          { code: 'price * amount == total → Arithmetic then compare', label: 'Complex expression' },
+        ],
+        auditRelevance: 'Comparisons are used in require statements, conditionals, and bounds checks. Verify the comparison logic matches the business requirements and handles edge cases correctly.',
+      },
+      {
+        id: 'cmp-2',
+        title: 'Two-Phase Evaluation',
+        rule: 'Comparisons use two-phase evaluation: Phase 1 evaluates both sides as numeric expressions, Phase 2 performs the boolean comparison.',
+        explanation: 'Both sides of a comparison are first evaluated using standard arithmetic rules (with decimal propagation). Then the raw bigint values are compared. Any overflow warnings from Phase 1 are preserved in the result.',
+        examples: [
+          { code: 'amount * price == max\nPhase 1: amount * price → numeric result\nPhase 2: result == max → boolean', label: 'Two phases' },
+        ],
+        auditRelevance: 'Understanding the two phases helps auditors verify that arithmetic is performed correctly before comparison. Check that both sides produce valid numeric results with proper decimal handling.',
+      },
+      {
+        id: 'cmp-3',
+        title: 'Auto-Normalization for Decimal Mismatches',
+        rule: 'If the two sides of a comparison have different decimal scales, SolCalc auto-normalizes both to the higher (more precise) decimal scale before comparing.',
+        explanation: 'This handles edge cases like comparing with negative decimals (e.g., type(uint256).max / 1e18 has -18 decimals). Auto-normalization only applies to comparisons, not arithmetic operations.',
+        examples: [
+          { code: 'amount (18 decimals) <= type(uint256).max / 1e18 (-18 decimals)\nNormalizes both to 18 decimals', label: 'Negative decimal handling' },
+          { code: 'usdc (6 decimals) == weth (18 decimals)\nNormalizes both to 18 decimals', label: 'Mixed token decimals' },
+        ],
+        auditRelevance: 'In Solidity, comparing values with different units requires explicit conversion. Verify contracts properly scale values before comparison. SolCalc auto-normalization simulates what the correct scaling would be.',
+      },
+      {
+        id: 'cmp-4',
+        title: 'Comparison Result Display',
+        rule: 'Comparison results show: the boolean result (true/false), the operator used, the left and right human-readable values, and the decimal scale.',
+        explanation: 'Unlike numeric results that show raw/human/solidity/loss, comparison results display the comparison details in a different format optimized for boolean evaluation.',
+        examples: [
+          { code: 'Result: true\nOperator: <=\nLeft: 1.000000000000000000\nRight: 115792089237316195423570985008687907853269984665640564039457.584007913129639935', label: 'Comparison output' },
+        ],
+        auditRelevance: 'When auditing require statements or conditionals, verify the comparison logic produces the expected boolean result for boundary cases and edge inputs.',
       },
     ],
   },

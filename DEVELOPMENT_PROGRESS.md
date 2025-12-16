@@ -1,6 +1,6 @@
 # SolCalc - Development Progress
 
-**Last Updated**: December 16, 2025
+**Last Updated**: December 17, 2025
 **Status**: ✅ Complete - Ready for Deployment (VS Code Extension + Web App)
 
 ---
@@ -17,18 +17,23 @@ SolCalc is a mixed-decimal calculator for Solidity audits, available as both a V
 **Status**: ✅ Complete and tested
 
 - **Tokenizer**: Parses expressions into tokens
-  - Supports: numbers, operators (+, -, *, /, **), variables, parentheses
+  - Supports: numbers, operators (+, -, *, /, **), comparisons (==, !=, <, <=, >, >=), variables, parentheses
   - Handles scientific notation (1e18, 2.5e6)
 
 - **Parser**: Builds AST with operator precedence
-  - Proper precedence: ** > * / > + -
+  - Proper precedence: ** > * / > + - > comparisons
   - Parentheses grouping support
+  - Comparison operators at top-level only (no nesting/chaining)
 
 - **Evaluator**: BigInt-only arithmetic with decimal tracking
   - Multiplication: decimals add (18 + 18 = 36)
   - Division: decimals subtract (36 - 18 = 18)
   - Addition/Subtraction: decimals must match (or scalar auto-lifts)
   - Exponentiation: Only `10 ** n` where n has decimals=0
+  - **Comparisons**: Two-phase evaluation (Phase 1: numeric, Phase 2: boolean)
+    - Auto-normalizes different decimal scales to higher precision
+    - Handles negative decimals gracefully (e.g., `amount <= type(uint256).max / 1e18`)
+    - Returns boolean result with comparison details
 
 - **Key Features**:
   - Scale constants: `1e18` → {value: 10^18, decimals: 18}
@@ -36,18 +41,26 @@ SolCalc is a mixed-decimal calculator for Solidity audits, available as both a V
   - Scalar literal auto-lifting: `1e18 + 1` works intuitively
   - Floor vs Ceil rounding modes
   - Division loss tracking with 50-digit precision
+  - Type bounds support: `type(uint256).max`, `type(int128).min`
+  - Comparison operators with auto-normalization
 
-- **Tests**: 148 comprehensive tests, all passing ✅
+- **Tests**: 173 comprehensive tests, all passing ✅
+  - 148 arithmetic/evaluation tests
+  - 24 comparison operator tests
+  - 1 auto-normalization test
 
 ### 2. React UI (`/ui`)
 **Status**: ✅ Complete with full feature set
 
 **Components**:
 - `App.tsx`: Main layout with theme toggle
-- `Toolbar.tsx`: Rounding selector + Guide button
+- `Toolbar.tsx`: Rounding selector + Guide button (separated layout)
 - `Expression.tsx`: Expression input with placeholder
 - `Variables.tsx`: Auto-detected variable inputs
 - `Results.tsx`: Display raw/human/solidity values + loss
+  - Dual-mode display: numeric results vs comparison results
+  - Comparison results show: true/false, operator, left/right values
+  - Negative decimals hidden from UI (internal edge case)
 - `Footer.tsx`: Credits and links
 - `Guideline.tsx`: Modal with 38 guidelines (index + content views)
 
@@ -66,7 +79,7 @@ SolCalc is a mixed-decimal calculator for Solidity audits, available as both a V
 - Visual depth with box-shadow and contrasting page background
 
 **Guidelines**:
-- 38 comprehensive entries across 9 sections:
+- 46 comprehensive entries across 11 sections:
   1. Getting Started (4)
   2. Core Decimal Rules (5)
   3. Powers & Scaling (4)
@@ -75,7 +88,9 @@ SolCalc is a mixed-decimal calculator for Solidity audits, available as both a V
   6. Common DeFi Patterns (4)
   7. Limitations (4)
   8. Audit Pitfalls (4)
-  9. Advanced (4)
+  9. Type Bounds (4)
+  10. Comparison Operators (4)
+  11. Advanced (4)
 
 ### 3. VS Code Extension (`/extension`)
 **Status**: ✅ Complete - Awaiting Marketplace Approval
@@ -179,16 +194,37 @@ sol-calc/
 - **Reason**: User wanted it to stay in sidebar like Chat panel
 - **Implementation**: Register as view in Activity Bar
 
+### 7. Comparison Operators with Auto-Normalization
+- **Decision**: Auto-normalize decimal mismatches in comparison mode only
+- **Reason**: Handles negative decimals edge case (e.g., `type(uint256).max / 1e18`)
+- **Implementation**:
+  - Two-phase evaluation: Phase 1 (numeric) → Phase 2 (boolean comparison)
+  - If decimals don't match, normalize to higher precision scale
+  - Comparison-only feature, does not affect arithmetic evaluation
+  - Returns `ComparisonResult` (boolean) instead of `EvaluationResult` (numeric)
+
+### 8. Negative Decimals Display
+- **Decision**: Hide negative decimals from UI presentation layer
+- **Reason**: Negative decimals are mathematically correct internally but UX-hostile
+- **Implementation**:
+  - Negative decimals allowed during computation
+  - Decimals line hidden when `result.decimals < 0`
+  - Presentation-layer only fix, no logic changes
+
 ---
 
 ## 📊 Current Status
 
 ### Working Features ✅
-- [x] Core engine with 148 passing tests
+- [x] Core engine with 173 passing tests
+- [x] Comparison operators (==, !=, <, <=, >, >=) with auto-normalization
+- [x] Dual-mode results display (numeric vs boolean)
+- [x] Negative decimal edge case handling
+- [x] Type bounds support (`type(uint256).max`, etc.)
 - [x] Web UI at localhost:5173 (dev server)
 - [x] Extension working in Extension Development Host (F5)
 - [x] Sidebar integration in VS Code
-- [x] All 38 guidelines implemented
+- [x] All 46 guidelines implemented
 - [x] Theme toggle (dark/light)
 - [x] Floor/Ceil rounding modes
 - [x] Loss calculation and display
@@ -256,7 +292,7 @@ code .
 ```bash
 cd core
 npm test
-# All 148 tests should pass
+# All 173 tests should pass
 ```
 
 ### 4. Build Everything
@@ -324,7 +360,7 @@ See **DEPLOYMENT.md** for complete step-by-step guides.
 cd core
 npm install
 npm run build      # Build to dist/
-npm test           # Run 79 tests
+npm test           # Run 173 tests
 ```
 
 ### UI
@@ -383,7 +419,7 @@ This file contains:
 
 ## 🎯 Success Metrics
 
-- [x] Core engine accuracy: 100% (148/148 tests passing)
+- [x] Core engine accuracy: 100% (173/173 tests passing)
 - [x] UI completeness: 100% (all features implemented)
 - [x] Extension functionality: 100% (works in dev mode)
 - [x] Web application: Ready for deployment
