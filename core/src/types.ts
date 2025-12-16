@@ -35,17 +35,18 @@ export interface Variable {
 // ============================================================================
 
 export enum TokenType {
-  NUMBER = 'NUMBER',           // Integer literal or scientific notation
-  IDENTIFIER = 'IDENTIFIER',   // Variable name
-  TYPE_BOUND = 'TYPE_BOUND',   // type(uintX).max/min or type(intX).max/min
-  PLUS = 'PLUS',               // +
-  MINUS = 'MINUS',             // -
-  MULTIPLY = 'MULTIPLY',       // *
-  DIVIDE = 'DIVIDE',           // /
-  POWER = 'POWER',             // **
-  LPAREN = 'LPAREN',           // (
-  RPAREN = 'RPAREN',           // )
-  EOF = 'EOF',                 // End of input
+  NUMBER = 'NUMBER',                   // Integer literal or scientific notation
+  DECIMAL_LITERAL = 'DECIMAL_LITERAL', // Decimal literal (8.5) - only allowed when absorbed by power-of-10
+  IDENTIFIER = 'IDENTIFIER',           // Variable name
+  TYPE_BOUND = 'TYPE_BOUND',           // type(uintX).max/min or type(intX).max/min
+  PLUS = 'PLUS',                       // +
+  MINUS = 'MINUS',                     // -
+  MULTIPLY = 'MULTIPLY',               // *
+  DIVIDE = 'DIVIDE',                   // /
+  POWER = 'POWER',                     // **
+  LPAREN = 'LPAREN',                   // (
+  RPAREN = 'RPAREN',                   // )
+  EOF = 'EOF',                         // End of input
 }
 
 export interface Token {

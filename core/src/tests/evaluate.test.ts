@@ -14,6 +14,7 @@ import {
   DecimalMismatchError,
   InvalidExponentiationError,
   UndefinedVariableError,
+  ParseError,
 } from '../types.js';
 
 // Helper to create variable map
@@ -656,4 +657,85 @@ test('evaluate - (type(uint8).max + 1) * 1e6 (no overflow warning for scaled res
 
   // Should NOT show overflow warning because final result has decimals
   assert.strictEqual(result.warning, undefined);
+});
+
+// ============================================================================
+// Decimal Literal Support (Controlled)
+// ============================================================================
+
+test('evaluate - 8.5 * 1e18 (decimal absorbed by scale)', () => {
+  const result = evaluateExpression('8.5 * 1e18', new Map());
+
+  // 8.5 * 10^18 = 8500000000000000000
+  assert.strictEqual(result.raw, 8500000000000000000n);
+  assert.strictEqual(result.decimals, 18);
+  // Human format includes all decimal places
+  assert.strictEqual(result.human, '8.500000000000000000');
+});
+
+test('evaluate - 0.25 * 1e18 (two decimal places)', () => {
+  const result = evaluateExpression('0.25 * 1e18', new Map());
+
+  // 0.25 * 10^18 = 250000000000000000
+  assert.strictEqual(result.raw, 250000000000000000n);
+  assert.strictEqual(result.decimals, 18);
+  assert.strictEqual(result.human, '0.250000000000000000');
+});
+
+test('evaluate - 1.5 * 1e6 (smaller scale)', () => {
+  const result = evaluateExpression('1.5 * 1e6', new Map());
+
+  // 1.5 * 10^6 = 1500000
+  assert.strictEqual(result.raw, 1500000n);
+  assert.strictEqual(result.decimals, 6);
+  assert.strictEqual(result.human, '1.500000');
+});
+
+test('evaluate - 3.14159 * 1e18 (many decimal places)', () => {
+  const result = evaluateExpression('3.14159 * 1e18', new Map());
+
+  // 3.14159 * 10^18 = 3141590000000000000
+  assert.strictEqual(result.raw, 3141590000000000000n);
+  assert.strictEqual(result.decimals, 18);
+});
+
+test('evaluate - error on 8.5 / 2 (decimal not absorbed)', () => {
+  assert.throws(
+    () => evaluateExpression('8.5 / 2', new Map()),
+    (err: Error) => {
+      return err instanceof ParseError &&
+             err.message.includes('Decimal literal cannot be represented') &&
+             err.message.includes('8.5 * 1e18 ✅');
+    }
+  );
+});
+
+test('evaluate - error on 8.5 + 1 (decimal not absorbed)', () => {
+  assert.throws(
+    () => evaluateExpression('8.5 + 1', new Map()),
+    (err: Error) => {
+      return err instanceof ParseError &&
+             err.message.includes('Decimal literal cannot be represented');
+    }
+  );
+});
+
+test('evaluate - error on 8.5 * 5 (insufficient multiplier)', () => {
+  assert.throws(
+    () => evaluateExpression('8.5 * 5', new Map()),
+    (err: Error) => {
+      return err instanceof ParseError &&
+             err.message.includes('requires multiplication by at least 10^1');
+    }
+  );
+});
+
+test('evaluate - error on standalone 8.5', () => {
+  assert.throws(
+    () => evaluateExpression('8.5', new Map()),
+    (err: Error) => {
+      return err instanceof ParseError &&
+             err.message.includes('Decimal literal cannot be represented');
+    }
+  );
 });

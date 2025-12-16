@@ -138,6 +138,11 @@ export class Parser {
       return this.parseNumberLiteral(token.value);
     }
 
+    // Decimal literal (only allowed when multiplied by power-of-10)
+    if (token.type === TokenType.DECIMAL_LITERAL) {
+      return this.parseDecimalLiteral(token);
+    }
+
     // Type bound (type(uintX|intX).max/min)
     if (token.type === TokenType.TYPE_BOUND) {
       this.advance();
@@ -231,6 +236,87 @@ export class Parser {
     } catch (error) {
       throw new ParseError(`Invalid number: ${value}`, this.position);
     }
+  }
+
+  /**
+   * Parses a decimal literal (e.g., 8.5).
+   *
+   * Decimal literals are ONLY allowed when immediately multiplied by a power-of-10
+   * that fully absorbs the decimal. This transforms the decimal into a scaled integer.
+   *
+   * Allowed:
+   * - 8.5 * 1e18 → 85 * 1e17
+   * - 0.25 * 1e18 → 25 * 1e16
+   *
+   * Disallowed:
+   * - 8.5 / 2 → decimal survives
+   * - 8.5 + 1 → decimal survives
+   */
+  private parseDecimalLiteral(decimalToken: Token): ASTNode {
+    this.advance(); // Consume decimal token
+
+    // Check if followed by multiplication
+    if (this.currentToken().type !== TokenType.MULTIPLY) {
+      throw new ParseError(
+        'Decimal literal cannot be represented as an integer.\n\n' +
+        'Solidity does not support floating-point math.\n' +
+        'Decimals are only allowed when fully scaled by a power of 10.\n\n' +
+        'Examples:\n' +
+        `  • ${decimalToken.value} * 1e18 ✅\n` +
+        `  • ${decimalToken.value} / 2 ❌`,
+        decimalToken.position
+      );
+    }
+
+    this.advance(); // Consume '*'
+
+    // Next token must be a power-of-10 (NUMBER token in scientific notation or 10**n)
+    const multiplierToken = this.currentToken();
+
+    if (multiplierToken.type !== TokenType.NUMBER) {
+      throw new ParseError(
+        `Decimal literal ${decimalToken.value} must be multiplied by a power-of-10 constant (e.g., 1e18, 10**18)`,
+        multiplierToken.position
+      );
+    }
+
+    // Parse the decimal value to extract integer part and decimal places
+    const [integerPart, fractionalPart] = decimalToken.value.split('.');
+    if (!fractionalPart) {
+      throw new ParseError(`Invalid decimal literal: ${decimalToken.value}`, decimalToken.position);
+    }
+
+    const decimalPlaces = fractionalPart.length;
+    const numerator = BigInt(integerPart + fractionalPart); // e.g., "8.5" → 85n
+
+    // Parse the multiplier (should be a scale constant like 1e18)
+    const multiplierValue = this.parseNumberLiteral(multiplierToken.value);
+
+    // Verify that the multiplier's raw value is sufficient to absorb the decimal
+    // For scale constants like 1e18, the value is 10^18 and decimals is 18
+    // Required: multiplier value >= 10^decimalPlaces
+    const requiredMultiplier = 10n ** BigInt(decimalPlaces);
+
+    if (multiplierValue.value < requiredMultiplier) {
+      throw new ParseError(
+        `Decimal literal ${decimalToken.value} requires multiplication by at least 10^${decimalPlaces} to eliminate decimals.\n` +
+        `Use a scale constant like 1e${decimalPlaces} or larger.`,
+        multiplierToken.position
+      );
+    }
+
+    this.advance(); // Consume multiplier
+
+    // Normalize: decimal * scale → (numerator * scale / 10^decimalPlaces)
+    // e.g., 8.5 * 1e18 → 85 * (10^18 / 10) = 85 * 10^17
+    // The result inherits the decimals from the scale constant
+    const normalizedValue = (numerator * multiplierValue.value) / requiredMultiplier;
+
+    return {
+      type: ASTNodeType.NUMBER_LITERAL,
+      value: normalizedValue,
+      decimals: multiplierValue.decimals, // Inherit decimals from the scale constant
+    } as NumberLiteralNode;
   }
 
   /**

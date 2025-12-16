@@ -140,48 +140,31 @@ test('tokenize - error on incomplete scientific notation', () => {
   );
 });
 
-test('tokenize - error on decimal literal (8.5)', () => {
-  assert.throws(
-    () => tokenize('8.5'),
-    (err: Error) => {
-      return err instanceof ParseError &&
-             err.message.includes('Decimal literals are not supported') &&
-             err.message.includes('scaled integers');
-    }
-  );
+test('tokenize - decimal literal (8.5) creates DECIMAL_LITERAL token', () => {
+  const tokens = tokenize('8.5');
+  assert.strictEqual(tokens.length, 2); // DECIMAL_LITERAL + EOF
+  assert.strictEqual(tokens[0]!.type, TokenType.DECIMAL_LITERAL);
+  assert.strictEqual(tokens[0]!.value, '8.5');
 });
 
-test('tokenize - error on decimal literal in expression', () => {
-  assert.throws(
-    () => tokenize('8.5 / 2'),
-    (err: Error) => {
-      return err instanceof ParseError &&
-             err.message.includes('Decimal literals are not supported');
-    }
-  );
+test('tokenize - decimal literal (0.25) creates DECIMAL_LITERAL token', () => {
+  const tokens = tokenize('0.25');
+  assert.strictEqual(tokens.length, 2);
+  assert.strictEqual(tokens[0]!.type, TokenType.DECIMAL_LITERAL);
+  assert.strictEqual(tokens[0]!.value, '0.25');
 });
 
-test('tokenize - error on decimal literal (0.25)', () => {
-  assert.throws(
-    () => tokenize('0.25'),
-    (err: Error) => {
-      return err instanceof ParseError &&
-             err.message.includes('Decimal literals are not supported');
-    }
-  );
+test('tokenize - decimal literal in expression (8.5 * 1e18)', () => {
+  const tokens = tokenize('8.5 * 1e18');
+  assert.strictEqual(tokens.length, 4); // DECIMAL_LITERAL, *, NUMBER, EOF
+  assert.strictEqual(tokens[0]!.type, TokenType.DECIMAL_LITERAL);
+  assert.strictEqual(tokens[0]!.value, '8.5');
+  assert.strictEqual(tokens[1]!.type, TokenType.MULTIPLY);
+  assert.strictEqual(tokens[2]!.type, TokenType.NUMBER);
+  assert.strictEqual(tokens[2]!.value, '1e18');
 });
 
-test('tokenize - error on decimal literal (1.0)', () => {
-  assert.throws(
-    () => tokenize('1.0'),
-    (err: Error) => {
-      return err instanceof ParseError &&
-             err.message.includes('Decimal literals are not supported');
-    }
-  );
-});
-
-test('tokenize - type(uint256).max should not trigger decimal error', () => {
+test('tokenize - type(uint256).max should not trigger decimal tokenization', () => {
   // Regression test: ensure type bounds with `.max` don't get confused with decimal literals
   const tokens = tokenize('type(uint256).max');
   assert.strictEqual(tokens.length, 2); // TYPE_BOUND + EOF
