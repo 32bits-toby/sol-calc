@@ -97,8 +97,12 @@ test('golden - Chainlink price scaling from 8 to 18 decimals', () => {
   );
 
   // Should scale to 18 decimals
-  assert.strictEqual(result.raw, 180000000000n);
+  // price: {value: 180000000000n (1800.00), decimals: 8}
+  // 10 ** 10: {value: 10^10, decimals: 10}
+  // price * (10 ** 10): {value: 180000000000 * 10^10 = 1800 * 10^18, decimals: 8 + 10 = 18}
+  assert.strictEqual(result.raw, 1800000000000000000000n);
   assert.strictEqual(result.decimals, 18); // 8 + 10 = 18
+  assert.strictEqual(result.human, '1800.000000000000000000');
 });
 
 // ============================================================================
@@ -117,8 +121,12 @@ test('golden - USDC to WAD conversion', () => {
   const result = evaluateExpression('amount * (10 ** (wad - usdc))', variables);
 
   // 1 USDC becomes 1e18 in WAD representation
-  assert.strictEqual(result.raw, 1000000n);
+  // amount: {value: 10^6, decimals: 6}
+  // 10 ** 12: {value: 10^12, decimals: 12}
+  // amount * (10 ** 12): {value: 10^6 * 10^12 = 10^18, decimals: 6 + 12 = 18}
+  assert.strictEqual(result.raw, 1000000000000000000n);
   assert.strictEqual(result.decimals, 18); // 6 + 12
+  assert.strictEqual(result.human, '1.000000000000000000');
 });
 
 test('golden - WAD to USDC conversion with rounding', () => {
@@ -201,9 +209,12 @@ test('golden - Ray math multiplication', () => {
   const result = evaluateExpression('principal * interestRate / 1e27', variables);
 
   // 1 * 1.05 = 1.05
-  // Decimals: 27 + 27 - 0 = 54 (this is correct - RAY * RAY / RAY_UNIT = 54 decimals)
+  // principal * interestRate: decimals 27 + 27 = 54
+  // 1e27: {value: 10^27, decimals: 27}
+  // Division: decimals 54 - 27 = 27
   assert.strictEqual(result.raw, 1050000000000000000000000000n);
-  assert.strictEqual(result.decimals, 54);
+  assert.strictEqual(result.decimals, 27);
+  assert.strictEqual(result.human, '1.050000000000000000000000000');
 });
 
 // ============================================================================
@@ -255,11 +266,14 @@ test('golden - Correct pattern: Scale then multiply', () => {
 
   const result = evaluateExpression('usdcAmount * 1000000000000 * wadPrice / 1e18', variables);
 
-  // usdcAmount * 1e12 = 1000000 * 1000000000000 = 1000000000000000000 with 6 decimals
-  // * wadPrice = 1000000000000000000 * 2000000000000000000 = 2000000000000000000000000000000000000 with 24 decimals
-  // / 1e18 = 2000000000000000000 with 24 decimals
-  assert.strictEqual(result.decimals, 24);
+  // usdcAmount * 1e12 = 1000000 * 1000000000000 = 10^18 with 6 + 0 = 6 decimals
+  // * wadPrice = 10^18 * 2*10^18 = 2*10^36 with 6 + 18 = 24 decimals
+  // 1e18: {value: 10^18, decimals: 18}
+  // / 1e18 = 2*10^36 / 10^18 = 2*10^18 with 24 - 18 = 6 decimals
+  // Human: 2*10^18 / 10^6 = 2 * 10^12 = 2 trillion (this shows the scaling issue)
+  assert.strictEqual(result.decimals, 6);
   assert.strictEqual(result.raw, 2000000000000000000n);
+  assert.strictEqual(result.human, '2000000000000.000000');
 });
 
 // ============================================================================

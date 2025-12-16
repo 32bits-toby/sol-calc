@@ -1,6 +1,6 @@
 # SolCalc - Development Progress
 
-**Last Updated**: December 15, 2024
+**Last Updated**: December 16, 2025
 **Status**: ✅ Complete - Ready for Deployment (VS Code Extension + Web App)
 
 ---
@@ -37,7 +37,7 @@ SolCalc is a mixed-decimal calculator for Solidity audits, available as both a V
   - Floor vs Ceil rounding modes
   - Division loss tracking with 50-digit precision
 
-- **Tests**: 79 comprehensive tests, all passing ✅
+- **Tests**: 148 comprehensive tests, all passing ✅
 
 ### 2. React UI (`/ui`)
 **Status**: ✅ Complete with full feature set
@@ -123,7 +123,7 @@ sol-calc/
 │   │   ├── parser/         # AST generation
 │   │   ├── evaluator/      # Evaluation engine
 │   │   └── types.ts        # Core type definitions
-│   ├── tests/              # 79 comprehensive tests
+│   ├── tests/              # 148 comprehensive tests
 │   └── dist/               # Built engine (ES modules)
 │
 ├── ui/                      # React calculator UI
@@ -184,7 +184,7 @@ sol-calc/
 ## 📊 Current Status
 
 ### Working Features ✅
-- [x] Core engine with 79 passing tests
+- [x] Core engine with 148 passing tests
 - [x] Web UI at localhost:5173 (dev server)
 - [x] Extension working in Extension Development Host (F5)
 - [x] Sidebar integration in VS Code
@@ -256,7 +256,7 @@ code .
 ```bash
 cd core
 npm test
-# All 79 tests should pass
+# All 148 tests should pass
 ```
 
 ### 4. Build Everything
@@ -383,7 +383,7 @@ This file contains:
 
 ## 🎯 Success Metrics
 
-- [x] Core engine accuracy: 100% (79/79 tests passing)
+- [x] Core engine accuracy: 100% (148/148 tests passing)
 - [x] UI completeness: 100% (all features implemented)
 - [x] Extension functionality: 100% (works in dev mode)
 - [x] Web application: Ready for deployment

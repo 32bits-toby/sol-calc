@@ -20,8 +20,10 @@ test('parse - scientific notation 1e18', () => {
   const tokens = tokenize('1e18');
   const ast = parse(tokens);
   assert.strictEqual(ast.type, ASTNodeType.NUMBER_LITERAL);
+  // 1e18 is a scale constant: {value: 10^18, decimals: 18}
+  // This represents "1 with 18 decimals" → human value = 10^18 / 10^18 = 1
   assert.strictEqual((ast as any).value, 1000000000000000000n);
-  assert.strictEqual((ast as any).decimals, 0);
+  assert.strictEqual((ast as any).decimals, 18);
 });
 
 test('parse - scientific notation 5e3', () => {

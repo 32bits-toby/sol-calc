@@ -160,8 +160,9 @@ test('evaluate - 10 ** 18 with literal exponent', () => {
 
   const result = evaluateExpression('10 ** 18', variables);
 
-  assert.strictEqual(result.raw, 1n);
+  assert.strictEqual(result.raw, 1000000000000000000n);
   assert.strictEqual(result.decimals, 18);
+  assert.strictEqual(result.human, '1.000000000000000000');
 });
 
 test('evaluate - 10 ** n with dimensionless variable', () => {
@@ -171,8 +172,9 @@ test('evaluate - 10 ** n with dimensionless variable', () => {
 
   const result = evaluateExpression('10 ** n', variables);
 
-  assert.strictEqual(result.raw, 1n);
+  assert.strictEqual(result.raw, 1000000000000000000n);
   assert.strictEqual(result.decimals, 18);
+  assert.strictEqual(result.human, '1.000000000000000000');
 });
 
 test('evaluate - error on 10 ** n where n has decimals', () => {
@@ -217,15 +219,18 @@ test('evaluate - error on non-literal base exponentiation', () => {
   );
 });
 
-test('evaluate - 10 ** negative exponent allowed', () => {
+test('evaluate - error on 10 ** negative exponent', () => {
   const variables = vars({
     n: { value: -6n, decimals: 0 },
   });
 
-  const result = evaluateExpression('10 ** n', variables);
-
-  assert.strictEqual(result.raw, 1n);
-  assert.strictEqual(result.decimals, -6);
+  assert.throws(
+    () => evaluateExpression('10 ** n', variables),
+    (err: Error) => {
+      return err instanceof InvalidExponentiationError &&
+        err.message.includes('non-negative');
+    }
+  );
 });
 
 // ============================================================================
@@ -240,16 +245,15 @@ test('evaluate - WAD multiplication: amount * price / 1e18', () => {
 
   const result = evaluateExpression('amount * price / 1e18', variables);
 
-  // 5 * 2 = 10, but we maintain proper decimals
-  // amount(18) * price(18) / 1e18(0) = 36 - 0 = 36 decimals
-  // Wait, that's not right. Let me recalculate:
-  // amount * price = 10000000000000000000000000000000000000n with 36 decimals
-  // 1e18 is 1000000000000000000n with 0 decimals
-  // Division: 10000000000000000000000000000000000000n / 1000000000000000000n = 10000000000000000000n
-  // Decimals: 36 - 0 = 36
+  // 5 * 2 = 10 (human-readable result)
+  // amount(18) * price(18) = (5*10^18 * 2*10^18) with decimals 36
+  // 1e18 = {value: 10^18, decimals: 18}
+  // Division: (10*10^36) / 10^18 = 10*10^18 with decimals 36 - 18 = 18
+  // Human: (10*10^18) / 10^18 = 10
 
   assert.strictEqual(result.raw, 10000000000000000000n);
-  assert.strictEqual(result.decimals, 36);
+  assert.strictEqual(result.decimals, 18);
+  assert.strictEqual(result.human, '10.000000000000000000');
 });
 
 test('evaluate - WAD division scaling', () => {
@@ -262,11 +266,15 @@ test('evaluate - WAD division scaling', () => {
 
   // This converts 1 USDC (6 decimals) to 18 decimals
   // amount * (10 ** 18) / (10 ** 6)
-  // 1000000 * 1(decimals=18) / 1(decimals=6)
-  // Intermediate: 1000000 * 1 = 1000000 with decimals 6 + 18 = 24
-  // Then: 1000000 / 1 = 1000000 with decimals 24 - 6 = 18
-  assert.strictEqual(result.raw, 1000000n);
+  // amount: {value: 10^6, decimals: 6}
+  // 10 ** 18: {value: 10^18, decimals: 18}
+  // 10 ** 6: {value: 10^6, decimals: 6}
+  // amount * (10 ** 18) = {value: 10^6 * 10^18 = 10^24, decimals: 6 + 18 = 24}
+  // (10^24 with decimals 24) / (10^6 with decimals 6) = {value: 10^24 / 10^6 = 10^18, decimals: 24 - 6 = 18}
+  // Human: 10^18 / 10^18 = 1
+  assert.strictEqual(result.raw, 1000000000000000000n);
   assert.strictEqual(result.decimals, 18);
+  assert.strictEqual(result.human, '1.000000000000000000');
 });
 
 // ============================================================================
