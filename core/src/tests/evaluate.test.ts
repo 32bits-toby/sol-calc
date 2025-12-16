@@ -10,6 +10,7 @@ import assert from 'node:assert';
 import { evaluateExpression, evaluateExpressionWithTarget } from '../index.js';
 import {
   Variable,
+  EvaluationResult,
   DivisionByZeroError,
   DecimalMismatchError,
   InvalidExponentiationError,
@@ -26,6 +27,24 @@ function vars(obj: Record<string, { value: bigint; decimals: number }>): Map<str
   return map;
 }
 
+// Type guard to ensure result is EvaluationResult (not ComparisonResult)
+function assertEvaluationResult(result: any): asserts result is EvaluationResult {
+  if (!('raw' in result)) {
+    throw new Error('Expected EvaluationResult but got ComparisonResult');
+  }
+}
+
+// Helper that evaluates and asserts the result is numeric (not comparison)
+function evaluateNumeric(
+  expression: string,
+  variables: Map<string, Variable>,
+  roundingMode?: any
+): EvaluationResult {
+  const result = evaluateExpression(expression, variables, roundingMode);
+  assertEvaluationResult(result);
+  return result;
+}
+
 // ============================================================================
 // Basic Arithmetic
 // ============================================================================
@@ -36,7 +55,7 @@ test('evaluate - simple addition with same decimals', () => {
     b: { value: 2000000n, decimals: 6 },
   });
 
-  const result = evaluateExpression('a + b', variables);
+  const result = evaluateNumeric('a + b', variables);
 
   assert.strictEqual(result.raw, 3000000n);
   assert.strictEqual(result.decimals, 6);
@@ -49,7 +68,7 @@ test('evaluate - simple subtraction with same decimals', () => {
     b: { value: 2000000n, decimals: 6 },
   });
 
-  const result = evaluateExpression('a - b', variables);
+  const result = evaluateNumeric('a - b', variables);
 
   assert.strictEqual(result.raw, 3000000n);
   assert.strictEqual(result.decimals, 6);
@@ -62,7 +81,7 @@ test('evaluate - multiplication adds decimals', () => {
     b: { value: 2000000000000000000n, decimals: 18 },
   });
 
-  const result = evaluateExpression('a * b', variables);
+  const result = evaluateNumeric('a * b', variables);
 
   assert.strictEqual(result.raw, 2000000000000000000000000n);
   assert.strictEqual(result.decimals, 24); // 6 + 18
@@ -75,7 +94,7 @@ test('evaluate - division subtracts decimals', () => {
     b: { value: 1000000n, decimals: 6 },
   });
 
-  const result = evaluateExpression('a / b', variables);
+  const result = evaluateNumeric('a / b', variables);
 
   assert.strictEqual(result.raw, 1000000000000n);
   assert.strictEqual(result.decimals, 12); // 18 - 6
@@ -87,7 +106,7 @@ test('evaluate - division with truncation', () => {
     b: { value: 3n, decimals: 0 },
   });
 
-  const result = evaluateExpression('a / b', variables);
+  const result = evaluateNumeric('a / b', variables);
 
   assert.strictEqual(result.raw, 3n); // 10 / 3 = 3 (truncates)
   assert.strictEqual(result.decimals, 0);
@@ -158,7 +177,7 @@ test('evaluate - error on undefined variable', () => {
 test('evaluate - 10 ** 18 with literal exponent', () => {
   const variables = vars({});
 
-  const result = evaluateExpression('10 ** 18', variables);
+  const result = evaluateNumeric('10 ** 18', variables);
 
   assert.strictEqual(result.raw, 1000000000000000000n);
   assert.strictEqual(result.decimals, 18);
@@ -170,7 +189,7 @@ test('evaluate - 10 ** n with dimensionless variable', () => {
     n: { value: 18n, decimals: 0 }, // Dimensionless
   });
 
-  const result = evaluateExpression('10 ** n', variables);
+  const result = evaluateNumeric('10 ** n', variables);
 
   assert.strictEqual(result.raw, 1000000000000000000n);
   assert.strictEqual(result.decimals, 18);
@@ -243,7 +262,7 @@ test('evaluate - WAD multiplication: amount * price / 1e18', () => {
     price: { value: 2000000000000000000n, decimals: 18 },  // 2 WAD
   });
 
-  const result = evaluateExpression('amount * price / 1e18', variables);
+  const result = evaluateNumeric('amount * price / 1e18', variables);
 
   // 5 * 2 = 10 (human-readable result)
   // amount(18) * price(18) = (5*10^18 * 2*10^18) with decimals 36
@@ -262,7 +281,7 @@ test('evaluate - WAD division scaling', () => {
     decimals: { value: 18n, decimals: 0 },
   });
 
-  const result = evaluateExpression('amount * (10 ** decimals) / (10 ** 6)', variables);
+  const result = evaluateNumeric('amount * (10 ** decimals) / (10 ** 6)', variables);
 
   // This converts 1 USDC (6 decimals) to 18 decimals
   // amount * (10 ** 18) / (10 ** 6)
@@ -287,7 +306,7 @@ test('evaluate - BPS calculation: amount * bps / 10000', () => {
     bps: { value: 500n, decimals: 0 }, // 5% = 500 bps, dimensionless
   });
 
-  const result = evaluateExpression('amount * bps / 10000', variables);
+  const result = evaluateNumeric('amount * bps / 10000', variables);
 
   // 1 * 500 / 10000 = 0.05 WAD = 50000000000000000
   assert.strictEqual(result.raw, 50000000000000000n);
@@ -305,7 +324,7 @@ test('evaluate - shares to assets: shares * totalAssets / totalSupply', () => {
     totalSupply: { value: 500000000000000000000n, decimals: 18 }, // 500 supply
   });
 
-  const result = evaluateExpression('shares * totalAssets / totalSupply', variables);
+  const result = evaluateNumeric('shares * totalAssets / totalSupply', variables);
 
   // 100 * 1000 / 500 = 200
   assert.strictEqual(result.raw, 200000000000000000000n);
@@ -324,7 +343,7 @@ test('evaluate - complex: (a + b) * c / d', () => {
     d: { value: 6000000000000000000n, decimals: 18 },
   });
 
-  const result = evaluateExpression('(a + b) * c / d', variables);
+  const result = evaluateNumeric('(a + b) * c / d', variables);
 
   // (1 + 2) * 3 / 6 = 9 / 6 = 1.5
   assert.strictEqual(result.raw, 1500000000000000000n);
@@ -382,7 +401,7 @@ test('evaluate - zero value', () => {
     a: { value: 0n, decimals: 18 },
   });
 
-  const result = evaluateExpression('a', variables);
+  const result = evaluateNumeric('a', variables);
 
   assert.strictEqual(result.raw, 0n);
   assert.strictEqual(result.decimals, 18);
@@ -395,7 +414,7 @@ test('evaluate - negative value', () => {
     b: { value: 10n, decimals: 0 },
   });
 
-  const result = evaluateExpression('a - b', variables);
+  const result = evaluateNumeric('a - b', variables);
 
   assert.strictEqual(result.raw, -5n);
   assert.strictEqual(result.decimals, 0);
@@ -407,7 +426,7 @@ test('evaluate - very large numbers', () => {
     a: { value: 1000000000000000000000000000000n, decimals: 18 },
   });
 
-  const result = evaluateExpression('a', variables);
+  const result = evaluateNumeric('a', variables);
 
   assert.strictEqual(result.raw, 1000000000000000000000000000000n);
   assert.strictEqual(result.decimals, 18);
@@ -418,7 +437,7 @@ test('evaluate - literal number in expression', () => {
     amount: { value: 1000000000000000000n, decimals: 18 },
   });
 
-  const result = evaluateExpression('amount * 2 / 100', variables);
+  const result = evaluateNumeric('amount * 2 / 100', variables);
 
   // 1 * 2 / 100 = 0.02
   assert.strictEqual(result.raw, 20000000000000000n);
@@ -430,65 +449,65 @@ test('evaluate - literal number in expression', () => {
 // ============================================================================
 
 test('evaluate - type(uint256).max', () => {
-  const result = evaluateExpression('type(uint256).max', new Map());
+  const result = evaluateNumeric('type(uint256).max', new Map());
   assert.strictEqual(result.raw, (2n ** 256n) - 1n);
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined); // No overflow
 });
 
 test('evaluate - type(uint256).min', () => {
-  const result = evaluateExpression('type(uint256).min', new Map());
+  const result = evaluateNumeric('type(uint256).min', new Map());
   assert.strictEqual(result.raw, 0n);
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined);
 });
 
 test('evaluate - type(int256).max', () => {
-  const result = evaluateExpression('type(int256).max', new Map());
+  const result = evaluateNumeric('type(int256).max', new Map());
   assert.strictEqual(result.raw, (2n ** 255n) - 1n);
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined);
 });
 
 test('evaluate - type(int256).min', () => {
-  const result = evaluateExpression('type(int256).min', new Map());
+  const result = evaluateNumeric('type(int256).min', new Map());
   assert.strictEqual(result.raw, -(2n ** 255n));
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined);
 });
 
 test('evaluate - type(uint8).max', () => {
-  const result = evaluateExpression('type(uint8).max', new Map());
+  const result = evaluateNumeric('type(uint8).max', new Map());
   assert.strictEqual(result.raw, 255n);
   assert.strictEqual(result.decimals, 0);
 });
 
 test('evaluate - type(uint128).max', () => {
-  const result = evaluateExpression('type(uint128).max', new Map());
+  const result = evaluateNumeric('type(uint128).max', new Map());
   assert.strictEqual(result.raw, (2n ** 128n) - 1n);
   assert.strictEqual(result.decimals, 0);
 });
 
 test('evaluate - type(int8).min', () => {
-  const result = evaluateExpression('type(int8).min', new Map());
+  const result = evaluateNumeric('type(int8).min', new Map());
   assert.strictEqual(result.raw, -128n);
   assert.strictEqual(result.decimals, 0);
 });
 
 test('evaluate - type(int8).max', () => {
-  const result = evaluateExpression('type(int8).max', new Map());
+  const result = evaluateNumeric('type(int8).max', new Map());
   assert.strictEqual(result.raw, 127n);
   assert.strictEqual(result.decimals, 0);
 });
 
 test('evaluate - type bound alias uint', () => {
-  const result = evaluateExpression('type(uint).max', new Map());
+  const result = evaluateNumeric('type(uint).max', new Map());
   assert.strictEqual(result.raw, (2n ** 256n) - 1n);
   assert.strictEqual(result.decimals, 0);
 });
 
 test('evaluate - type bound alias int', () => {
-  const result = evaluateExpression('type(int).min', new Map());
+  const result = evaluateNumeric('type(int).min', new Map());
   assert.strictEqual(result.raw, -(2n ** 255n));
   assert.strictEqual(result.decimals, 0);
 });
@@ -498,21 +517,21 @@ test('evaluate - type bound alias int', () => {
 // ============================================================================
 
 test('evaluate - type(uint256).max - 5', () => {
-  const result = evaluateExpression('type(uint256).max - 5', new Map());
+  const result = evaluateNumeric('type(uint256).max - 5', new Map());
   assert.strictEqual(result.raw, (2n ** 256n) - 6n);
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined); // No overflow
 });
 
 test('evaluate - type(uint128).max / 2', () => {
-  const result = evaluateExpression('type(uint128).max / 2', new Map());
+  const result = evaluateNumeric('type(uint128).max / 2', new Map());
   assert.strictEqual(result.raw, ((2n ** 128n) - 1n) / 2n);
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined);
 });
 
 test('evaluate - type(int8).min + 100', () => {
-  const result = evaluateExpression('type(int8).min + 100', new Map());
+  const result = evaluateNumeric('type(int8).min + 100', new Map());
   assert.strictEqual(result.raw, -28n);
   assert.strictEqual(result.decimals, 0);
   assert.strictEqual(result.warning, undefined);
@@ -523,7 +542,7 @@ test('evaluate - type(int8).min + 100', () => {
 // ============================================================================
 
 test('evaluate - type(uint256).max + 1 (overflow)', () => {
-  const result = evaluateExpression('type(uint256).max + 1', new Map());
+  const result = evaluateNumeric('type(uint256).max + 1', new Map());
 
   // Result should be the unbounded mathematical value
   assert.strictEqual(result.raw, 2n ** 256n);
@@ -537,7 +556,7 @@ test('evaluate - type(uint256).max + 1 (overflow)', () => {
 });
 
 test('evaluate - type(uint256).max + 3 (overflow wraps to 2)', () => {
-  const result = evaluateExpression('type(uint256).max + 3', new Map());
+  const result = evaluateNumeric('type(uint256).max + 3', new Map());
 
   assert.strictEqual(result.raw, (2n ** 256n) + 2n);
   assert.strictEqual(result.decimals, 0);
@@ -549,7 +568,7 @@ test('evaluate - type(uint256).max + 3 (overflow wraps to 2)', () => {
 });
 
 test('evaluate - type(uint128).max * 2 (overflow)', () => {
-  const result = evaluateExpression('type(uint128).max * 2', new Map());
+  const result = evaluateNumeric('type(uint128).max * 2', new Map());
 
   const expected = ((2n ** 128n) - 1n) * 2n;
   assert.strictEqual(result.raw, expected);
@@ -560,7 +579,7 @@ test('evaluate - type(uint128).max * 2 (overflow)', () => {
 });
 
 test('evaluate - type(int256).min - 1 (underflow)', () => {
-  const result = evaluateExpression('type(int256).min - 1', new Map());
+  const result = evaluateNumeric('type(int256).min - 1', new Map());
 
   const expected = -(2n ** 255n) - 1n;
   assert.strictEqual(result.raw, expected);
@@ -571,7 +590,7 @@ test('evaluate - type(int256).min - 1 (underflow)', () => {
 });
 
 test('evaluate - type(uint8).max + 1 (overflow wraps to 0)', () => {
-  const result = evaluateExpression('type(uint8).max + 1', new Map());
+  const result = evaluateNumeric('type(uint8).max + 1', new Map());
 
   assert.strictEqual(result.raw, 256n);
   assert.strictEqual(result.decimals, 0);
@@ -583,7 +602,7 @@ test('evaluate - type(uint8).max + 1 (overflow wraps to 0)', () => {
 });
 
 test('evaluate - type(int8).max + 1 (overflow)', () => {
-  const result = evaluateExpression('type(int8).max + 1', new Map());
+  const result = evaluateNumeric('type(int8).max + 1', new Map());
 
   assert.strictEqual(result.raw, 128n);
 
@@ -593,7 +612,7 @@ test('evaluate - type(int8).max + 1 (overflow)', () => {
 });
 
 test('evaluate - type(int8).min - 1 (underflow)', () => {
-  const result = evaluateExpression('type(int8).min - 1', new Map());
+  const result = evaluateNumeric('type(int8).min - 1', new Map());
 
   assert.strictEqual(result.raw, -129n);
 
@@ -607,7 +626,7 @@ test('evaluate - type(int8).min - 1 (underflow)', () => {
 // ============================================================================
 
 test('evaluate - (type(uint256).max + 5) - 3 (overflow in subexpression)', () => {
-  const result = evaluateExpression('(type(uint256).max + 5) - 3', new Map());
+  const result = evaluateNumeric('(type(uint256).max + 5) - 3', new Map());
 
   // Result is (2^256 - 1 + 5) - 3 = 2^256 + 1
   assert.strictEqual(result.raw, (2n ** 256n) + 1n);
@@ -618,7 +637,7 @@ test('evaluate - (type(uint256).max + 5) - 3 (overflow in subexpression)', () =>
 });
 
 test('evaluate - type(uint64).max * type(uint64).max (massive overflow)', () => {
-  const result = evaluateExpression('type(uint64).max * type(uint64).max', new Map());
+  const result = evaluateNumeric('type(uint64).max * type(uint64).max', new Map());
 
   const max64 = (2n ** 64n) - 1n;
   const expected = max64 * max64;
@@ -634,7 +653,7 @@ test('evaluate - type(uint64).max * type(uint64).max (massive overflow)', () => 
 // ============================================================================
 
 test('evaluate - type(uint256).max / 1e18 (no overflow warning for non-scalar result)', () => {
-  const result = evaluateExpression('type(uint256).max / 1e18', new Map());
+  const result = evaluateNumeric('type(uint256).max / 1e18', new Map());
 
   // Result has decimals = -18 (negative means we need to multiply by 10^18 to get the integer)
   assert.strictEqual(result.decimals, -18);
@@ -644,7 +663,7 @@ test('evaluate - type(uint256).max / 1e18 (no overflow warning for non-scalar re
 });
 
 test('evaluate - (type(uint256).max + 1) * 1e18 / 1e18 (overflow for scalar result)', () => {
-  const result = evaluateExpression('(type(uint256).max + 1) * 1e18 / 1e18', new Map());
+  const result = evaluateNumeric('(type(uint256).max + 1) * 1e18 / 1e18', new Map());
 
   // Decimals cancel out: +18 -18 = 0 (pure scalar)
   assert.strictEqual(result.decimals, 0);
@@ -657,7 +676,7 @@ test('evaluate - (type(uint256).max + 1) * 1e18 / 1e18 (overflow for scalar resu
 });
 
 test('evaluate - (type(uint8).max + 1) * 1e6 (no overflow warning for scaled result)', () => {
-  const result = evaluateExpression('(type(uint8).max + 1) * 1e6', new Map());
+  const result = evaluateNumeric('(type(uint8).max + 1) * 1e6', new Map());
 
   // Result = 256 * 10^6 with decimals = 6
   assert.strictEqual(result.decimals, 6);
@@ -672,7 +691,7 @@ test('evaluate - (type(uint8).max + 1) * 1e6 (no overflow warning for scaled res
 // ============================================================================
 
 test('evaluate - 8.5 * 1e18 (decimal absorbed by scale)', () => {
-  const result = evaluateExpression('8.5 * 1e18', new Map());
+  const result = evaluateNumeric('8.5 * 1e18', new Map());
 
   // 8.5 * 10^18 = 8500000000000000000
   assert.strictEqual(result.raw, 8500000000000000000n);
@@ -682,7 +701,7 @@ test('evaluate - 8.5 * 1e18 (decimal absorbed by scale)', () => {
 });
 
 test('evaluate - 0.25 * 1e18 (two decimal places)', () => {
-  const result = evaluateExpression('0.25 * 1e18', new Map());
+  const result = evaluateNumeric('0.25 * 1e18', new Map());
 
   // 0.25 * 10^18 = 250000000000000000
   assert.strictEqual(result.raw, 250000000000000000n);
@@ -691,7 +710,7 @@ test('evaluate - 0.25 * 1e18 (two decimal places)', () => {
 });
 
 test('evaluate - 1.5 * 1e6 (smaller scale)', () => {
-  const result = evaluateExpression('1.5 * 1e6', new Map());
+  const result = evaluateNumeric('1.5 * 1e6', new Map());
 
   // 1.5 * 10^6 = 1500000
   assert.strictEqual(result.raw, 1500000n);
@@ -700,7 +719,7 @@ test('evaluate - 1.5 * 1e6 (smaller scale)', () => {
 });
 
 test('evaluate - 3.14159 * 1e18 (many decimal places)', () => {
-  const result = evaluateExpression('3.14159 * 1e18', new Map());
+  const result = evaluateNumeric('3.14159 * 1e18', new Map());
 
   // 3.14159 * 10^18 = 3141590000000000000
   assert.strictEqual(result.raw, 3141590000000000000n);

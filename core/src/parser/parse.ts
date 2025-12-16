@@ -4,14 +4,17 @@
  * Converts a stream of tokens into an Abstract Syntax Tree (AST).
  * This is the second stage of parsing.
  *
- * Grammar (with precedence):
- *   expression := term (('+' | '-') term)*
- *   term       := exponentiation (('*' | '/') exponentiation)*
+ * Grammar (with precedence, lowest to highest):
+ *   comparison     := expression (('==' | '!=' | '<' | '<=' | '>' | '>=') expression)?
+ *   expression     := term (('+' | '-') term)*
+ *   term           := exponentiation (('*' | '/') exponentiation)*
  *   exponentiation := primary ('**' primary)?
- *   primary    := NUMBER | IDENTIFIER | '(' expression ')'
+ *   primary        := NUMBER | IDENTIFIER | '(' expression ')'
  *
- * CRITICAL: Exponentiation validation happens during evaluation, not parsing,
- * because we need to know if the exponent is dimensionless (decimals = 0).
+ * CRITICAL NOTES:
+ * - Comparisons are TOP-LEVEL only (no nesting, no chaining)
+ * - Exponentiation validation happens during evaluation, not parsing
+ * - Comparisons are evaluated AFTER arithmetic (Phase 2)
  */
 
 import {
@@ -24,6 +27,7 @@ import {
   IdentifierNode,
   BinaryOpNode,
   ExponentiationNode,
+  ComparisonNode,
   ParseError,
 } from '../types.js';
 
@@ -40,7 +44,7 @@ export class Parser {
    * Parses the token stream into an AST.
    */
   parse(): ASTNode {
-    const ast = this.parseExpression();
+    const ast = this.parseComparison();
 
     // Ensure we consumed all tokens (except EOF)
     if (this.currentToken().type !== TokenType.EOF) {
@@ -51,6 +55,85 @@ export class Parser {
     }
 
     return ast;
+  }
+
+  /**
+   * Parses comparison expressions (lowest precedence: ==, !=, <, <=, >, >=)
+   *
+   * CRITICAL: Comparisons are TOP-LEVEL only.
+   * - Exactly ONE comparison per expression
+   * - No nested comparisons
+   * - No chaining (a < b < c is forbidden)
+   * - Evaluated AFTER all arithmetic (Phase 2)
+   */
+  private parseComparison(): ASTNode {
+    let left = this.parseExpression();
+
+    // Check if we have a comparison operator
+    const token = this.currentToken();
+    const isComparisonOperator =
+      token.type === TokenType.EQUAL ||
+      token.type === TokenType.NOT_EQUAL ||
+      token.type === TokenType.LESS_THAN ||
+      token.type === TokenType.LESS_THAN_OR_EQUAL ||
+      token.type === TokenType.GREATER_THAN ||
+      token.type === TokenType.GREATER_THAN_OR_EQUAL;
+
+    if (!isComparisonOperator) {
+      // No comparison operator - return arithmetic result
+      return left;
+    }
+
+    // We have a comparison operator
+    const operator = this.getComparisonOperator(token.type);
+    this.advance();
+    const right = this.parseExpression();
+
+    // Check for chained comparisons (forbidden)
+    const nextToken = this.currentToken();
+    const hasAnotherComparison =
+      nextToken.type === TokenType.EQUAL ||
+      nextToken.type === TokenType.NOT_EQUAL ||
+      nextToken.type === TokenType.LESS_THAN ||
+      nextToken.type === TokenType.LESS_THAN_OR_EQUAL ||
+      nextToken.type === TokenType.GREATER_THAN ||
+      nextToken.type === TokenType.GREATER_THAN_OR_EQUAL;
+
+    if (hasAnotherComparison) {
+      throw new ParseError(
+        `Chained comparisons are not supported. Only one comparison operator per expression is allowed.`,
+        nextToken.position
+      );
+    }
+
+    return {
+      type: ASTNodeType.COMPARISON,
+      operator,
+      left,
+      right,
+    } as ComparisonNode;
+  }
+
+  /**
+   * Converts a TokenType to a comparison operator string.
+   */
+  private getComparisonOperator(tokenType: TokenType): '==' | '!=' | '<' | '<=' | '>' | '>=' {
+    switch (tokenType) {
+      case TokenType.EQUAL:
+        return '==';
+      case TokenType.NOT_EQUAL:
+        return '!=';
+      case TokenType.LESS_THAN:
+        return '<';
+      case TokenType.LESS_THAN_OR_EQUAL:
+        return '<=';
+      case TokenType.GREATER_THAN:
+        return '>';
+      case TokenType.GREATER_THAN_OR_EQUAL:
+        return '>=';
+      default:
+        throw new Error(`Invalid comparison operator token: ${tokenType}`);
+    }
   }
 
   /**

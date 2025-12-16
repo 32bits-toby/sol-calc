@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { evaluateExpression } from '../index.js';
-import { Variable } from '../types.js';
+import { Variable, EvaluationResult } from '../types.js';
 
 function vars(obj: Record<string, { value: bigint; decimals: number }>): Map<string, Variable> {
   const map = new Map<string, Variable>();
@@ -17,6 +17,19 @@ function vars(obj: Record<string, { value: bigint; decimals: number }>): Map<str
     map.set(name, { name, value, decimals });
   }
   return map;
+}
+
+// Helper that evaluates and asserts the result is numeric (not comparison)
+function evaluateNumeric(
+  expression: string,
+  variables: Map<string, Variable>,
+  roundingMode?: any
+): EvaluationResult {
+  const result = evaluateExpression(expression, variables, roundingMode);
+  if (!('raw' in result)) {
+    throw new Error('Expected EvaluationResult but got ComparisonResult');
+  }
+  return result;
 }
 
 // ============================================================================
@@ -32,7 +45,7 @@ test('golden - ERC4626 convertToShares', () => {
     totalAssets: { value: 2000000000000000000000n, decimals: 18 }, // 2000 tokens (2:1 ratio)
   });
 
-  const result = evaluateExpression('assets * totalSupply / totalAssets', variables);
+  const result = evaluateNumeric('assets * totalSupply / totalAssets', variables);
 
   // 100 * 1000 / 2000 = 50 shares
   assert.strictEqual(result.raw, 50000000000000000000n);
@@ -49,7 +62,7 @@ test('golden - ERC4626 convertToAssets', () => {
     totalSupply: { value: 1000000000000000000000n, decimals: 18 }, // 1000 shares
   });
 
-  const result = evaluateExpression('shares * totalAssets / totalSupply', variables);
+  const result = evaluateNumeric('shares * totalAssets / totalSupply', variables);
 
   // 50 * 2000 / 1000 = 100 tokens
   assert.strictEqual(result.raw, 100000000000000000000n);
@@ -69,7 +82,7 @@ test('golden - Uniswap V2 getAmountOut', () => {
     reserveOut: { value: 50000000000000000000000n, decimals: 18 }, // 50,000 tokens
   });
 
-  const result = evaluateExpression(
+  const result = evaluateNumeric(
     '(amountIn * 997 * reserveOut) / (reserveIn * 1000 + amountIn * 997)',
     variables
   );
@@ -91,7 +104,7 @@ test('golden - Chainlink price scaling from 8 to 18 decimals', () => {
     sourceDecimals: { value: 8n, decimals: 0 },
   });
 
-  const result = evaluateExpression(
+  const result = evaluateNumeric(
     'price * (10 ** (targetDecimals - sourceDecimals))',
     variables
   );
@@ -118,7 +131,7 @@ test('golden - USDC to WAD conversion', () => {
     usdc: { value: 6n, decimals: 0 },
   });
 
-  const result = evaluateExpression('amount * (10 ** (wad - usdc))', variables);
+  const result = evaluateNumeric('amount * (10 ** (wad - usdc))', variables);
 
   // 1 USDC becomes 1e18 in WAD representation
   // amount: {value: 10^6, decimals: 6}
@@ -137,7 +150,7 @@ test('golden - WAD to USDC conversion with rounding', () => {
   });
 
   // Evaluate the division
-  const result = evaluateExpression('amount / 1000000000000', variables);
+  const result = evaluateNumeric('amount / 1000000000000', variables);
 
   // Division: 1500000000000000007 / 1000000000000 = 1500000 (integer division truncates)
   // The raw result is 1500000, but it still carries 18 decimals from the decimal propagation
@@ -162,7 +175,7 @@ test('golden - Protocol fee calculation (50 bps = 0.5%)', () => {
     feeBps: { value: 50n, decimals: 0 }, // 50 bps = 0.5%
   });
 
-  const result = evaluateExpression('amount * feeBps / 10000', variables);
+  const result = evaluateNumeric('amount * feeBps / 10000', variables);
 
   // 1000 * 50 / 10000 = 5 tokens
   assert.strictEqual(result.raw, 5000000000000000000n);
@@ -178,7 +191,7 @@ test('golden - Slippage tolerance (100 bps = 1%)', () => {
     slippageBps: { value: 100n, decimals: 0 }, // 100 bps = 1%
   });
 
-  const result = evaluateExpression('expectedOutput * (10000 - slippageBps) / 10000', variables);
+  const result = evaluateNumeric('expectedOutput * (10000 - slippageBps) / 10000', variables);
 
   // 100 * 9900 / 10000 = 99 tokens
   assert.strictEqual(result.raw, 99000000000000000000n);
@@ -206,7 +219,7 @@ test('golden - Ray math multiplication', () => {
     interestRate: { value: 1050000000000000000000000000n, decimals: 27 }, // 1.05 RAY (5% APY)
   });
 
-  const result = evaluateExpression('principal * interestRate / 1e27', variables);
+  const result = evaluateNumeric('principal * interestRate / 1e27', variables);
 
   // 1 * 1.05 = 1.05
   // principal * interestRate: decimals 27 + 27 = 54
@@ -231,7 +244,7 @@ test('golden - Uniswap V2 liquidity mint', () => {
     reserve0: { value: 10000000000000000000000n, decimals: 18 }, // 10,000 tokens
   });
 
-  const result = evaluateExpression('amount0 * totalSupply / reserve0', variables);
+  const result = evaluateNumeric('amount0 * totalSupply / reserve0', variables);
 
   // 100 * 1000 / 10000 = 10 LP tokens
   assert.strictEqual(result.raw, 10000000000000000000n);
@@ -250,7 +263,7 @@ test('golden - Bug pattern: Forgetting to scale before multiply', () => {
     wadPrice: { value: 2000000000000000000n, decimals: 18 }, // 2 WAD
   });
 
-  const result = evaluateExpression('usdcAmount * wadPrice', variables);
+  const result = evaluateNumeric('usdcAmount * wadPrice', variables);
 
   // Result is correct but has 24 decimals - auditor must verify this is handled correctly
   assert.strictEqual(result.decimals, 24); // 6 + 18 = 24 (NOT 18!)
@@ -264,7 +277,7 @@ test('golden - Correct pattern: Scale then multiply', () => {
     wadPrice: { value: 2000000000000000000n, decimals: 18 }, // 2 WAD
   });
 
-  const result = evaluateExpression('usdcAmount * 1000000000000 * wadPrice / 1e18', variables);
+  const result = evaluateNumeric('usdcAmount * 1000000000000 * wadPrice / 1e18', variables);
 
   // usdcAmount * 1e12 = 1000000 * 1000000000000 = 10^18 with 6 + 0 = 6 decimals
   // * wadPrice = 10^18 * 2*10^18 = 2*10^36 with 6 + 18 = 24 decimals
@@ -287,7 +300,7 @@ test('golden - Small amount precision loss', () => {
     largeNumber: { value: 1000000000000000000n, decimals: 0 }, // 1e18
   });
 
-  const result = evaluateExpression('smallAmount / largeNumber', variables);
+  const result = evaluateNumeric('smallAmount / largeNumber', variables);
 
   // 1 wei / 1e18 = 0 (complete precision loss!)
   assert.strictEqual(result.raw, 0n);
@@ -302,7 +315,7 @@ test('golden - Precision preservation with multiplication first', () => {
     divisor: { value: 1000000000000000000n, decimals: 0 }, // 1e18
   });
 
-  const result = evaluateExpression('smallAmount * multiplier / divisor', variables);
+  const result = evaluateNumeric('smallAmount * multiplier / divisor', variables);
 
   // (1 * 1e18) / 1e18 = 1 wei (precision preserved)
   assert.strictEqual(result.raw, 1n);

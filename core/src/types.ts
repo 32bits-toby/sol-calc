@@ -46,6 +46,12 @@ export enum TokenType {
   POWER = 'POWER',                     // **
   LPAREN = 'LPAREN',                   // (
   RPAREN = 'RPAREN',                   // )
+  EQUAL = 'EQUAL',                     // ==
+  NOT_EQUAL = 'NOT_EQUAL',             // !=
+  LESS_THAN = 'LESS_THAN',             // <
+  LESS_THAN_OR_EQUAL = 'LESS_THAN_OR_EQUAL',     // <=
+  GREATER_THAN = 'GREATER_THAN',       // >
+  GREATER_THAN_OR_EQUAL = 'GREATER_THAN_OR_EQUAL', // >=
   EOF = 'EOF',                         // End of input
 }
 
@@ -65,6 +71,7 @@ export enum ASTNodeType {
   IDENTIFIER = 'IDENTIFIER',
   BINARY_OP = 'BINARY_OP',
   EXPONENTIATION = 'EXPONENTIATION',
+  COMPARISON = 'COMPARISON',
 }
 
 /**
@@ -130,12 +137,31 @@ export interface ExponentiationNode {
   exponent: ASTNode;  // Must evaluate to decimals = 0
 }
 
+/**
+ * Represents a comparison operation (==, !=, <, <=, >, >=).
+ *
+ * CRITICAL RESTRICTIONS:
+ * - Exactly ONE comparison per expression (no chaining)
+ * - Both sides must evaluate to the same decimal scale
+ * - Comparisons are evaluated AFTER numeric evaluation (Phase 2)
+ * - Result is boolean, not numeric
+ *
+ * This is not arithmetic - it's a read-only comparison layer.
+ */
+export interface ComparisonNode {
+  type: ASTNodeType.COMPARISON;
+  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
+  left: ASTNode;   // Arithmetic expression (no nested comparisons)
+  right: ASTNode;  // Arithmetic expression (no nested comparisons)
+}
+
 export type ASTNode =
   | NumberLiteralNode
   | TypeBoundLiteralNode
   | IdentifierNode
   | BinaryOpNode
-  | ExponentiationNode;
+  | ExponentiationNode
+  | ComparisonNode;
 
 // ============================================================================
 // Evaluated Value (Internal)
@@ -230,6 +256,44 @@ export interface EvaluationResult {
   warning?: OverflowWarning;
 }
 
+/**
+ * The final result of evaluating a comparison expression.
+ *
+ * This is separate from EvaluationResult because comparisons produce boolean results.
+ * Phase 1 (numeric evaluation) must complete successfully before Phase 2 (comparison).
+ */
+export interface ComparisonResult {
+  /**
+   * The boolean result of the comparison.
+   */
+  result: boolean;
+
+  /**
+   * The comparison operator used.
+   */
+  operator: '==' | '!=' | '<' | '<=' | '>' | '>=';
+
+  /**
+   * Human-readable representation of the left operand.
+   */
+  leftHuman: string;
+
+  /**
+   * Human-readable representation of the right operand.
+   */
+  rightHuman: string;
+
+  /**
+   * The decimal scale (both sides must match, so we only store one value).
+   */
+  decimals: number;
+
+  /**
+   * Optional overflow warning from the numeric evaluation phase.
+   */
+  warning?: OverflowWarning;
+}
+
 // ============================================================================
 // Error Types
 // ============================================================================
@@ -294,5 +358,25 @@ export class MissingDecimalsError extends EvaluationError {
   constructor(public variableName: string) {
     super(`Variable "${variableName}" is missing decimals. All variables must have explicit decimals >= 0.`);
     this.name = 'MissingDecimalsError';
+  }
+}
+
+export class ComparisonError extends EvaluationError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ComparisonError';
+  }
+}
+
+export class ComparisonDecimalMismatchError extends ComparisonError {
+  constructor(
+    public leftDecimals: number,
+    public rightDecimals: number
+  ) {
+    super(
+      `Cannot compare values with different decimals (${leftDecimals} vs ${rightDecimals}). ` +
+      `Normalize decimals explicitly before comparison.`
+    );
+    this.name = 'ComparisonDecimalMismatchError';
   }
 }

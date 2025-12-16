@@ -7,7 +7,8 @@
  * Supported tokens:
  * - Numbers (integers and scientific notation: 1000, 1e18)
  * - Identifiers (variable names: amount, price)
- * - Operators: + - * / **
+ * - Arithmetic operators: + - * / **
+ * - Comparison operators: == != < <= > >=
  * - Parentheses: ( )
  */
 
@@ -94,6 +95,48 @@ export function tokenize(input: string): Token[] {
           position += 2;
         } else {
           tokens.push({ type: TokenType.MULTIPLY, value: '*', position });
+          position++;
+        }
+        continue;
+
+      case '=':
+        // Check for == (equality)
+        if (input[position + 1] === '=') {
+          tokens.push({ type: TokenType.EQUAL, value: '==', position });
+          position += 2;
+        } else {
+          throw new ParseError(`Unexpected character: '${char}' (did you mean '=='?)`, position);
+        }
+        continue;
+
+      case '!':
+        // Check for != (not equal)
+        if (input[position + 1] === '=') {
+          tokens.push({ type: TokenType.NOT_EQUAL, value: '!=', position });
+          position += 2;
+        } else {
+          throw new ParseError(`Unexpected character: '${char}' (did you mean '!='?)`, position);
+        }
+        continue;
+
+      case '<':
+        // Check for <= (less than or equal)
+        if (input[position + 1] === '=') {
+          tokens.push({ type: TokenType.LESS_THAN_OR_EQUAL, value: '<=', position });
+          position += 2;
+        } else {
+          tokens.push({ type: TokenType.LESS_THAN, value: '<', position });
+          position++;
+        }
+        continue;
+
+      case '>':
+        // Check for >= (greater than or equal)
+        if (input[position + 1] === '=') {
+          tokens.push({ type: TokenType.GREATER_THAN_OR_EQUAL, value: '>=', position });
+          position += 2;
+        } else {
+          tokens.push({ type: TokenType.GREATER_THAN, value: '>', position });
           position++;
         }
         continue;

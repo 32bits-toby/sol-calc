@@ -9,6 +9,7 @@
 export type {
   Variable,
   EvaluationResult,
+  ComparisonResult,
   RoundingMode,
   Token,
   TokenType,
@@ -26,36 +27,60 @@ export {
   DivisionByZeroError,
   UndefinedVariableError,
   MissingDecimalsError,
+  ComparisonError,
+  ComparisonDecimalMismatchError,
 } from './types.js';
 
 // Re-export core functions
 export { tokenize } from './parser/tokenize.js';
 export { parse } from './parser/parse.js';
-export { evaluate, evaluateWithTargetDecimals } from './evaluator/evaluate.js';
+export { evaluate, evaluateWithTargetDecimals, evaluateComparison } from './evaluator/evaluate.js';
 export { formatWithDecimals } from './evaluator/decimals.js';
 
 import { tokenize } from './parser/tokenize.js';
 import { parse } from './parser/parse.js';
-import { evaluate, evaluateWithTargetDecimals } from './evaluator/evaluate.js';
-import { Variable, EvaluationResult, RoundingMode, ASTNode, IdentifierNode, ASTNodeType } from './types.js';
+import { evaluate, evaluateWithTargetDecimals, evaluateComparison } from './evaluator/evaluate.js';
+import {
+  Variable,
+  EvaluationResult,
+  ComparisonResult,
+  RoundingMode,
+  ASTNode,
+  IdentifierNode,
+  ComparisonNode,
+  ASTNodeType
+} from './types.js';
 
 /**
  * High-level function to evaluate an expression string.
  *
  * This is the main entry point for simple evaluation.
  *
+ * TWO-PHASE EVALUATION:
+ * - If expression contains a comparison operator (==, !=, <, <=, >, >=):
+ *   Returns ComparisonResult (boolean result)
+ * - Otherwise:
+ *   Returns EvaluationResult (numeric result)
+ *
  * @param expression - The expression to evaluate
  * @param variables - Map of variable names to their definitions
  * @param roundingMode - Rounding mode for division (default: 'floor')
- * @returns Evaluation result
+ * @returns Evaluation result (numeric) or Comparison result (boolean)
  */
 export function evaluateExpression(
   expression: string,
   variables: Map<string, Variable>,
   roundingMode: RoundingMode = 'floor'
-): EvaluationResult {
+): EvaluationResult | ComparisonResult {
   const tokens = tokenize(expression);
   const ast = parse(tokens);
+
+  // Check if this is a comparison expression (Phase 2)
+  if (ast.type === ASTNodeType.COMPARISON) {
+    return evaluateComparison(ast as ComparisonNode, variables, roundingMode);
+  }
+
+  // Otherwise, evaluate as numeric expression (Phase 1)
   return evaluate(ast, variables, roundingMode);
 }
 
@@ -115,8 +140,12 @@ function extractVariablesFromAST(node: ASTNode): Set<string> {
       const exp = n as any;
       visit(exp.base);
       visit(exp.exponent);
+    } else if (n.type === ASTNodeType.COMPARISON) {
+      const comp = n as ComparisonNode;
+      visit(comp.left);
+      visit(comp.right);
     }
-    // NUMBER_LITERAL has no children to visit
+    // NUMBER_LITERAL and TYPE_BOUND_LITERAL have no children to visit
   }
 
   visit(node);

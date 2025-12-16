@@ -14,17 +14,20 @@ import {
   Variable,
   EvaluatedValue,
   EvaluationResult,
+  ComparisonResult,
   RoundingMode,
   OverflowWarning,
   DivisionByZeroError,
   UndefinedVariableError,
   MissingDecimalsError,
   InvalidExponentiationError,
+  ComparisonDecimalMismatchError,
   NumberLiteralNode,
   TypeBoundLiteralNode,
   IdentifierNode,
   BinaryOpNode,
   ExponentiationNode,
+  ComparisonNode,
 } from '../types.js';
 import {
   multiplyDecimals,
@@ -544,4 +547,74 @@ function calculateWrappedValue(value: bigint, bits: number, isSigned: boolean): 
       return wrappedUnsigned;
     }
   }
+}
+
+/**
+ * Evaluates a comparison expression (Phase 2).
+ *
+ * CRITICAL: This is called AFTER Phase 1 (numeric evaluation).
+ * Both sides must:
+ * - Evaluate successfully to numeric values
+ * - Have matching decimal scales
+ *
+ * @param node - The comparison AST node
+ * @param variables - Variable definitions
+ * @param roundingMode - Rounding mode (passed to Phase 1)
+ * @returns Comparison result (boolean)
+ */
+export function evaluateComparison(
+  node: ComparisonNode,
+  variables: Map<string, Variable>,
+  roundingMode: RoundingMode = 'floor'
+): ComparisonResult {
+  // Phase 1: Evaluate both sides as numeric expressions
+  const leftResult = evaluate(node.left, variables, roundingMode);
+  const rightResult = evaluate(node.right, variables, roundingMode);
+
+  // Check decimal equality (REQUIRED)
+  if (leftResult.decimals !== rightResult.decimals) {
+    throw new ComparisonDecimalMismatchError(
+      leftResult.decimals,
+      rightResult.decimals
+    );
+  }
+
+  // Perform the comparison using raw values (unbounded, pre-rounding)
+  const leftValue = leftResult.raw;
+  const rightValue = rightResult.raw;
+  let result: boolean;
+
+  switch (node.operator) {
+    case '==':
+      result = leftValue === rightValue;
+      break;
+    case '!=':
+      result = leftValue !== rightValue;
+      break;
+    case '<':
+      result = leftValue < rightValue;
+      break;
+    case '<=':
+      result = leftValue <= rightValue;
+      break;
+    case '>':
+      result = leftValue > rightValue;
+      break;
+    case '>=':
+      result = leftValue >= rightValue;
+      break;
+    default:
+      throw new Error(`Unknown comparison operator: ${node.operator}`);
+  }
+
+  // Return comparison result
+  return {
+    result,
+    operator: node.operator,
+    leftHuman: leftResult.human,
+    rightHuman: rightResult.human,
+    decimals: leftResult.decimals,
+    // Preserve overflow warning if present
+    warning: leftResult.warning || rightResult.warning,
+  };
 }
