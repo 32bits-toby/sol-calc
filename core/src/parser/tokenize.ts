@@ -98,6 +98,27 @@ export function tokenize(input: string): Token[] {
         }
         continue;
 
+      case '.':
+        // Check if this looks like an attempt to use a decimal literal (e.g., 8.5)
+        // This happens when the previous token was a number or when followed by a digit
+        const previousToken = tokens[tokens.length - 1];
+        const nextChar = input[position + 1];
+
+        if ((previousToken && previousToken.type === TokenType.NUMBER) ||
+            (nextChar && isDigit(nextChar))) {
+          throw new ParseError(
+            'Decimal literals are not supported in Solidity.\n\n' +
+            'Solidity does not allow floating-point values (e.g., 8.5, 0.1, 3.14).\n' +
+            'Use scaled integers instead:\n' +
+            '  • 8.5 → 85 * 1e17\n' +
+            '  • 0.25 → 25 * 1e16\n' +
+            '  • 8.5 / 2 → (85 * 1e17) / 2',
+            position
+          );
+        }
+        // If not a decimal literal attempt, fall through to generic error
+        throw new ParseError(`Unexpected character: '${char}'`, position);
+
       default:
         throw new ParseError(`Unexpected character: '${char}'`, position);
     }
