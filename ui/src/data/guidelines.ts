@@ -55,13 +55,13 @@ export const GUIDELINES: GuidelineSection[] = [
       {
         id: 'gs-3',
         title: 'Variables vs. Literals',
-        rule: 'Variables are defined explicitly with a value and decimal precision. Literals in expressions inherit decimals from context.',
-        explanation: 'Variables like "x" require you to specify both value and decimals. Scalar literals (plain integers like "1" or "100") automatically adapt to match the decimal precision of other operands in addition/subtraction.',
+        rule: 'Variables are defined explicitly with a value and decimal precision. Scalar literals are added as raw values and the result inherits decimals from context.',
+        explanation: 'Variables like "x" require you to specify both value and decimals. Scalar literals (plain integers like "1" or "100") are added as raw values in addition/subtraction - they are NOT scaled to match decimal precision. The result inherits the decimal precision from the other operand.',
         examples: [
-          { code: 'x = 1000000000000000000 (18 decimals)\n1e18 + 1 → auto-lifts 1 to 18 decimals', label: 'Scalar auto-lifting' },
+          { code: 'x = 1000000000000000000 (18 decimals)\n1e18 + 1 → 1000000000000000001 (adds 1 wei, not 1 token)', label: 'Literal as raw value' },
           { code: 'x + y requires x.decimals == y.decimals', label: 'Variable constraint' },
         ],
-        auditRelevance: 'Incorrect decimal assumptions cause precision loss bugs. Verify that scalar constants are scaled correctly in contract code.',
+        auditRelevance: 'Scalar literals are added at the raw level. Verify that adding constants like "1" or "100" is intentional at the wei/smallest-unit level, not the token level.',
       },
       {
         id: 'gs-4',
