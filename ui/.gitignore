@@ -1,5 +1,40 @@
+# Dependencies
 node_modules/
-dist/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
 *.log
+
+# Build outputs
+dist/
+build/
+out/
+.esbuild/
+.next/
+*.vsix
+
+# Source maps (CRITICAL)
+*.map
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-.vite/
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Testing
+coverage/
+
+# Temporary / cache
+*.tmp
+*.temp
+.cache/
