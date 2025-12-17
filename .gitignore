@@ -30,3 +30,4 @@ coverage/
 *.tmp
 *.temp
 .cache/
+*.map
