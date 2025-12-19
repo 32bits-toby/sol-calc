@@ -1,12 +1,12 @@
 # SolCalc VS Code Extension
 
-**Mixed-Decimal Calculator for Solidity Audits**
+**Mixed-Decimal Calculator for evm Audits**
 
-SolCalc is a developer utility that helps smart contract auditors and Solidity developers verify arithmetic operations with explicit decimal tracking. It mimics Solidity's integer-only arithmetic while showing precision loss, rounding behavior, and decimal propagation.
+SolCalc is a developer utility that helps smart contract auditors and evm developers verify arithmetic operations with explicit decimal tracking. It mimics evm's integer-only arithmetic while showing precision loss, rounding behavior, and decimal propagation.
 
 ## Why SolCalc?
 
-Solidity doesn't have floating-point types. All token amounts are stored as integers with an implied decimal place. For example:
+evm doesn't have floating-point types. All token amounts are stored as integers with an implied decimal place. For example:
 - 1 USDC (6 decimals) = `1000000`
 - 1 ETH (18 decimals) = `1000000000000000000`
 
@@ -15,7 +15,7 @@ SolCalc helps you verify calculations across different decimal precisions withou
 ## Features
 
 ### Core Functionality
-- **BigInt-Only Arithmetic**: No floating-point operations, matching Solidity exactly
+- **BigInt-Only Arithmetic**: No floating-point operations, matching evm exactly
 - **Mixed-Decimal Support**: Work with values of different decimal precisions (USDC 6, WETH 18, etc.)
 - **Floor/Ceil Rounding**: Choose rounding mode and see the impact on results
 - **Loss Calculation**: See exactly how much value is lost due to rounding
@@ -40,7 +40,7 @@ SolCalc helps you verify calculations across different decimal precisions withou
 1. **Open SolCalc**: Click the calculator icon in the Activity Bar (left sidebar)
 2. **Enter Expression**: Type your arithmetic expression (e.g., `(price * amount) / 1e18`)
 3. **Define Variables**: If your expression has variables, enter their values and decimal precision
-4. **View Results**: See the result in raw, human-readable, and Solidity formats, plus any precision loss
+4. **View Results**: See the result in raw, human-readable, and wvm formats, plus any precision loss
 
 ### Example Use Cases
 

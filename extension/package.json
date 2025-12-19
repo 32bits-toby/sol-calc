@@ -1,7 +1,7 @@
 {
   "name": "solcalc",
   "displayName": "SolCalc",
-  "description": "A developer utility for safely performing mixed-decimal arithmetic during Solidity development and smart contract audits.",
+  "description": "A developer utility for safely performing mixed-decimal arithmetic during EVM development and smart contract audits.",
   "version": "0.1.0",
   "publisher": "keepitfortoby",
   "icon": "icon.png",
@@ -32,7 +32,7 @@
     "Other"
   ],
   "keywords": [
-    "solidity",
+    "evm",
     "calculator",
     "audit",
     "defi",

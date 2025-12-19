@@ -7,7 +7,7 @@ All notable changes to the SolCalc extension will be documented in this file.
 ### Initial Release
 
 #### Added
-- BigInt-only arithmetic engine for Solidity-accurate calculations
+- BigInt-only arithmetic engine for evm-accurate calculations
 - Mixed-decimal support for different token precisions (USDC 6, WETH 18, etc.)
 - Floor and Ceil rounding modes
 - Precision loss tracking for division operations
@@ -29,7 +29,7 @@ All notable changes to the SolCalc extension will be documented in this file.
 - Real-time result display showing:
   - Raw BigInt value
   - Human-readable decimal value
-  - Solidity-compatible representation
+  - evm-compatible representation
   - Precision loss (when applicable)
 - Guidelines panel with searchable categories
 - Completely offline - no network access
